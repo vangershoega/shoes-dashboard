@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商控戰情室 - 銷售與庫存分析</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d2e;
+            --surface2: #252840;
+            --accent: #4f8ef7;
+            --accent2: #f7974f;
+            --accent3: #4febb8;
+            --danger: #f74f4f;
+            --text: #e8eaf0;
+            --muted: #8b90a8;
+            --border: #2e3150;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #1a1d2e 0%, #252840 100%);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .header h1 { font-size: 1.3em; font-weight: 700; letter-spacing: 0.02em; flex: 1; min-width: 200px; }
+        .header h1 span { color: var(--accent); }
+
+        /* ── Loading overlay ── */
+        #loading-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15,17,23,0.92);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            z-index: 999;
+            gap: 16px;
+        }
+        .spinner {
+            width: 48px; height: 48px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-overlay p { color: var(--muted); font-size: 0.95em; }
+
+        /* ── Store tabs ── */
+        .capsule-wrap {
+            display: flex; flex-wrap: wrap;
+            background: var(--bg);
+            padding: 5px;
+            border-radius: 30px;
+            gap: 4px;
+        }
+        .tab {
+            border: none;
+            background: transparent;
+            padding: 7px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--muted);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--text); background: var(--surface2); }
+        .tab.active { background: var(--accent); color: white; box-shadow: 0 2px 12px rgba(79,142,247,0.4); }
+        .tab.active-orange { background: var(--accent2); color: white; }
+        .tab.active-green  { background: var(--accent3); color: #0f1117; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .section-label {
+            font-size: 0.78em;
+            font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* ── Year select ── */
+        .year-select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-bottom: 18px;
+        }
+
+        /* ── SKU container ── */
+        .sku-wrap { max-height: 140px; overflow-y: auto; }
+        .sku-wrap::-webkit-scrollbar { width: 4px; }
+        .sku-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* ── KPI boxes ── */
+        .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+        @media (max-width: 700px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        .kpi-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+        .kpi-sales::before  { background: var(--accent); }
+        .kpi-open::before   { background: var(--accent2); }
+        .kpi-close::before  { background: var(--danger); }
+        .kpi-avg::before    { background: var(--accent3); }
+        .kpi-box h3  { font-size: 0.78em; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; margin-bottom: 8px; }
+        .kpi-box .val { font-size: 2em; font-weight: 800; line-height: 1; }
+        .kpi-box .unit { font-size: 0.75em; color: var(--muted); margin-top: 4px; }
+        .kpi-sales .val  { color: var(--accent); }
+        .kpi-open .val   { color: var(--accent2); }
+        .kpi-close .val  { color: var(--danger); }
+        .kpi-avg .val    { color: var(--accent3); }
+        .alert-badge {
+            display: inline-block;
+            background: var(--danger);
+            color: white;
+            font-size: 0.65em;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-top: 6px;
+            font-weight: 700;
+        }
+
+        /* ── Chart ── */
+        .chart-wrap { position: relative; height: 42vh; width: 100%; }
+
+        /* ── Table ── */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        thead th {
+            background: var(--surface2);
+            color: var(--muted);
+            font-size: 0.75em;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 10px 14px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+        tbody td {
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            font-weight: 500;
+        }
+        tbody tr:hover { background: var(--surface2); }
+        .ratio-tag {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.88em;
+            font-weight: 700;
+        }
+        .ratio-high { background: rgba(247,151,79,0.18); color: var(--accent2); }
+        .ratio-low  { background: rgba(79,235,184,0.18); color: var(--accent3); }
+        .ratio-ok   { background: rgba(79,142,247,0.18); color: var(--accent); }
+        .empty-row td { color: var(--muted); font-style: italic; padding: 30px; }
+
+        /* ── Error banner ── */
+        #error-banner {
+            display: none;
+            background: rgba(247,79,79,0.15);
+            border: 1px solid var(--danger);
+            color: #ff9999;
+            padding: 12px 18px;
+            border-radius: var(--radius);
+            margin-bottom: 16px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <p>正在從 Firebase 載入資料…</p>
+</div>
+
+<div id="error-banner"></div>
+
+<!-- ── Header / Store tabs ── -->
+<div class="header">
+    <h1>📊 全通路銷售與庫存 <span>戰情室</span></h1>
+    <div class="capsule-wrap" id="storeTabs">
+        <button class="tab active" onclick="setSingle('store','總通路',this)">總通路</button>
+        <button class="tab" onclick="setSingle('store','官網',this)">官網</button>
+        <button class="tab" onclick="setSingle('store','A13',this)">A13</button>
+        <button class="tab" onclick="setSingle('store','南西',this)">南西</button>
+        <button class="tab" onclick="setSingle('store','台中',this)">台中</button>
+        <button class="tab" onclick="setSingle('store','南紡',this)">南紡</button>
+        <button class="tab" onclick="setSingle('store','東區',this)">東區</button>
+        <button class="tab" onclick="setSingle('store','MO店+',this)">MO店+</button>
+        <button class="tab" onclick="setSingle('store','特賣',this)">特賣</button>
+    </div>
+</div>
+
+<!-- ── Filter card ── -->
+<div class="card">
+    <select id="yearSelector" class="year-select" onchange="state.year=this.value; updateDashboard();">
+        <option value="113">113 年度</option>
+        <option value="114">114 年度</option>
+        <option value="115" selected>115 年度</option>
+        <option value="116">116 年度</option>
+    </select>
+
+    <span class="section-label">🌙 分析月份（單選）</span>
+    <div class="capsule-wrap" style="margin-bottom:18px">
+        <button class="tab" onclick="setSingle('month','全年度',this)">全年度</button>
+        <button class="tab" onclick="setSingle('month','一月',this)">一月</button>
+        <button class="tab" onclick="setSingle('month','二月',this)">二月</button>
+        <button class="tab" onclick="setSingle('month','三月',this)">三月</button>
+        <button class="tab" onclick="setSingle('month','四月',this)">四月</button>
+        <button class="tab active" onclick="setSingle('month','五月',this)">五月</button>
+        <button class="tab" onclick="setSingle('month','六月',this)">六月</button>
+        <button class="tab" onclick="setSingle('month','七月',this)">七月</button>
+        <button class="tab" onclick="setSingle('month','八月',this)">八月</button>
+        <button class="tab" onclick="setSingle('month','九月',this)">九月</button>
+        <button class="tab" onclick="setSingle('month','十月',this)">十月</button>
+        <button class="tab" onclick="setSingle('month','十一月',this)">十一月</button>
+        <button class="tab" onclick="setSingle('month','十二月',this)">十二月</button>
+    </div>
+
+    <span class="section-label">⭐ 銷售級別（複選）</span>
+    <div class="capsule-wrap" style="margin-bottom:18px">
+        <button class="tab active" onclick="toggleMulti('grade','全級別',this)">全級別</button>
+        <button class="tab" onclick="toggleMulti('grade','2025新款',this)">2025新款</button>
+        <button class="tab" onclick="toggleMulti('grade','A+ 商品 (前30%)',this)">A+ 商品</button>
+        <button class="tab" onclick="toggleMulti('grade','A 商品 (30-60%)',this)">A 商品</button>
+        <button class="tab" onclick="toggleMulti('grade','A- 商品 (60~80%)',this)">A- 商品</button>
+        <button class="tab" onclick="toggleMulti('grade','B+ 商品 (80-85%)',this)">B+ 商品</button>
+        <button class="tab" onclick="toggleMulti('grade','B 商品 (85-90%)',this)">B 商品</button>
+        <button class="tab" onclick="toggleMulti('grade','B- 商品 (後10%)',this)">B- 商品</button>
+        <button class="tab" onclick="toggleMulti('grade','2025淘汰款',this)">2025淘汰款</button>
+        <button class="tab" onclick="toggleMulti('grade','歷年累計特賣款',this)">歷年特賣</button>
+        <button class="tab" onclick="toggleMulti('grade','2024淘汰款',this)">2024淘汰款</button>
+    </div>
+
+    <span class="section-label">👞 商品類別（複選，連動型號）</span>
+    <div class="capsule-wrap" style="margin-bottom:18px">
+        <button class="tab active" onclick="toggleMulti('category','全類別',this)">全類別</button>
+        <button class="tab" onclick="toggleMulti('category','素面皮鞋',this)">素面皮鞋</button>
+        <button class="tab" onclick="toggleMulti('category','雕花皮鞋',this)">雕花皮鞋</button>
+        <button class="tab" onclick="toggleMulti('category','樂福、豆豆鞋',this)">樂福、豆豆鞋</button>
+        <button class="tab" onclick="toggleMulti('category','靴子',this)">靴子</button>
+        <button class="tab" onclick="toggleMulti('category','孟克鞋',this)">孟克鞋</button>
+        <button class="tab" onclick="toggleMulti('category','半正式皮鞋',this)">半正式皮鞋</button>
+        <button class="tab" onclick="toggleMulti('category','流行休閒鞋',this)">流行休閒鞋</button>
+        <button class="tab" onclick="toggleMulti('category','增高系列',this)">增高系列</button>
+        <button class="tab" onclick="toggleMulti('category','速穿系列',this)">速穿系列</button>
+        <button class="tab" onclick="toggleMulti('category','3M防水鞋系列',this)">3M防水鞋</button>
+    </div>
+
+    <span class="section-label">🏷️ 指定型號（複選對比，全型號顯示加總）</span>
+    <div class="capsule-wrap sku-wrap" id="skuTabsContainer"></div>
+</div>
+
+<!-- ── KPI boxes ── -->
+<div class="kpi-grid">
+    <div class="kpi-box kpi-sales"><h3>條件銷售總量</h3><div class="val" id="kpi-sales">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-open"><h3>期初庫存</h3><div class="val" id="kpi-open">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-close"><h3>期末庫存</h3><div class="val" id="kpi-close">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-avg"><h3>平均庫存量</h3><div class="val" id="kpi-avg">—</div><div id="kpi-avg-sub" class="unit">雙</div></div>
+</div>
+
+<!-- ── Chart ── -->
+<div class="card">
+    <h2 style="font-size:1em;color:var(--muted);font-weight:700;margin-bottom:16px;" id="chart-header">📈 銷售與庫存趨勢</h2>
+    <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+</div>
+
+<!-- ── Detail table ── -->
+<div class="card">
+    <h2 style="font-size:1em;color:var(--muted);font-weight:700;margin-bottom:16px;">📋 型號明細表</h2>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>型號 / SKU</th><th>銷售量 (雙)</th><th>期初庫存</th><th>期末庫存</th><th>平均庫存</th><th>庫銷比 (I/S)</th></tr></thead>
+            <tbody id="detailTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  Firebase 初始化
+// ══════════════════════════════════════════
+const firebaseConfig = {
+    apiKey: "AIzaSyAimgD7BUG3AiLis9IVgmXawUWQ_kSIpt8",
+    authDomain: "shoes-dashboard-69b31.firebaseapp.com",
+    projectId: "shoes-dashboard-69b31",
+    storageBucket: "shoes-dashboard-69b31.firebasestorage.app",
+    messagingSenderId: "1066943168381",
+    appId: "1:1066943168381:web:dff73609a66aa9b1ba1614"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ══════════════════════════════════════════
+//  全域狀態 & 快取
+// ══════════════════════════════════════════
+let state = {
+    year: '115',
+    store: '總通路',
+    month: '五月',
+    filters: { category: [], grade: [], sku: [] }
+};
+
+let rawData = [];       // Firebase 全部資料快取
+let skuMeta = {};       // sku（完整顏色款）→ { category, grade }
+
+const MONTHS = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+const COLORS  = ['#4f8ef7','#f7974f','#4febb8','#f74f4f','#a78bfa','#fbbf24','#34d399','#f472b6','#60a5fa','#fb923c'];
+
+// ══════════════════════════════════════════
+//  載入 Firebase 資料（所有資料一次性快取）
+// ══════════════════════════════════════════
+async function loadAllData() {
+    try {
+        const snap = await db.collection('shoes_data').get();
+        rawData = snap.docs.map(d => d.data());
+
+        // 建立 sku（完整顏色款）→ { category, grade }
+        rawData.forEach(r => {
+            if (!skuMeta[r.sku]) {
+                skuMeta[r.sku] = { category: r.category || '未分類', grade: r.grade || '未分級' };
+            }
+        });
+
+        document.getElementById('loading-overlay').style.display = 'none';
+        renderSkus();
+        updateDashboard();
+    } catch(e) {
+        document.getElementById('loading-overlay').style.display = 'none';
+        const banner = document.getElementById('error-banner');
+        banner.style.display = 'block';
+        banner.textContent = '⚠️ Firebase 連線失敗：' + e.message + '（請確認 Firestore 規則是否允許讀取）';
+        console.error(e);
+    }
+}
+
+// ══════════════════════════════════════════
+//  過濾資料（精準完整顏色款比對）
+// ══════════════════════════════════════════
+function getFiltered() {
+    return rawData.filter(r => {
+        if (r.year !== state.year) return false;
+        if (r.store !== state.store) return false;
+        if (state.month !== '全年度' && r.month !== state.month) return false;
+        if (state.filters.grade.length    && !state.filters.grade.includes(r.grade)) return false;
+        if (state.filters.category.length && !state.filters.category.includes(r.category)) return false;
+        if (state.filters.sku.length      && !state.filters.sku.includes(r.sku)) return false;
+        return true;
+    });
+}
+
+// ══════════════════════════════════════════
+//  渲染 SKU 選單（顯示完整顏色款，依類別連動）
+// ══════════════════════════════════════════
+function renderSkus() {
+    const container = document.getElementById('skuTabsContainer');
+    let skus = Object.keys(skuMeta);
+    // 依類別篩選
+    if (state.filters.category.length) {
+        skus = skus.filter(s => state.filters.category.includes(skuMeta[s].category));
+    }
+    // 依級別篩選
+    if (state.filters.grade.length) {
+        skus = skus.filter(s => state.filters.grade.includes(skuMeta[s].grade));
+    }
+    skus.sort();
+
+    // 清掉不在新列表裡的已選型號
+    state.filters.sku = state.filters.sku.filter(s => skus.includes(s));
+
+    let html = `<button class="tab ${state.filters.sku.length===0?'active':''}" onclick="toggleMulti('sku','全型號',this)">全型號</button>`;
+    skus.forEach(s => {
+        const meta = skuMeta[s];
+        html += `<button class="tab ${state.filters.sku.includes(s)?'active':''}" onclick="toggleMulti('sku','${s}',this)" title="${meta.grade}">${s}</button>`;
+    });
+    container.innerHTML = html;
+}
+
+// ══════════════════════════════════════════
+//  Tab 事件處理
+// ══════════════════════════════════════════
+function setSingle(type, val, el) {
+    state[type] = val;
+    el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    updateDashboard();
+}
+
+function toggleMulti(type, val, el) {
+    let arr = state.filters[type];
+    const container = el.parentElement;
+    if (val.includes('全')) {
+        arr.length = 0;
+        container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+    } else {
+        container.firstElementChild.classList.remove('active');
+        const i = arr.indexOf(val);
+        if (i > -1) arr.splice(i, 1); else arr.push(val);
+        el.classList.toggle('active');
+        if (arr.length === 0) container.firstElementChild.classList.add('active');
+    }
+    // 切換類別或級別時，清空已選型號並重新渲染型號列表
+    if (type === 'category' || type === 'grade') {
+        state.filters.sku = [];
+    }
+    renderSkus();
+    updateDashboard();
+}
+
+// ══════════════════════════════════════════
+//  主更新函數 — 讀 Firebase 快取，不用 random
+// ══════════════════════════════════════════
+let chart;
+function updateDashboard() {
+    if (!rawData.length) return;
+
+    const tableBody = document.getElementById('detailTableBody');
+    if (chart) { chart.destroy(); chart = null; }
+    tableBody.innerHTML = '';
+
+    const filtered = getFiltered();
+
+    // ── 整理各 sku（完整顏色款）的月份資料 ──
+    const skuMap = {};
+    filtered.forEach(r => {
+        if (!skuMap[r.sku]) skuMap[r.sku] = { monthly: {} };
+        const key = r.month;
+        if (!skuMap[r.sku].monthly[key]) skuMap[r.sku].monthly[key] = { sales: 0, open: 0, close: 0 };
+        skuMap[r.sku].monthly[key].sales += parseInt(r.sales) || 0;
+        skuMap[r.sku].monthly[key].open  += parseInt(r.opening_stock) || 0;
+        skuMap[r.sku].monthly[key].close += parseInt(r.closing_stock) || 0;
+    });
+
+    const skuList = Object.keys(skuMap).sort();
+    const multiMode = state.filters.sku.length > 0;
+
+    // ── KPI 加總 ──
+    let totalSales = 0, totalOpen = 0, totalClose = 0;
+    skuList.forEach(sku => {
+        const m = skuMap[sku].monthly;
+        if (state.month === '全年度') {
+            Object.values(m).forEach(v => { totalSales += v.sales; totalOpen += v.open; totalClose += v.close; });
+        } else {
+            const v = m[state.month] || { sales:0, open:0, close:0 };
+            totalSales += v.sales; totalOpen += v.open; totalClose += v.close;
+        }
+    });
+    const totalAvg = Math.round((totalOpen + totalClose) / 2);
+
+    document.getElementById('kpi-sales').textContent = totalSales.toLocaleString();
+    document.getElementById('kpi-open').textContent  = totalOpen.toLocaleString();
+    document.getElementById('kpi-close').textContent = totalClose.toLocaleString();
+    document.getElementById('kpi-avg').textContent   = totalAvg.toLocaleString();
+
+    // 庫存警示
+    const avgSub = document.getElementById('kpi-avg-sub');
+    if (totalAvg > 700 && (state.store === '南西' || state.store === 'A13')) {
+        avgSub.innerHTML = '雙 <span class="alert-badge">🚨 超 700 上限</span>';
+    } else {
+        avgSub.textContent = '雙';
+    }
+
+    // ── Chart datasets ──
+    const datasets = [];
+    if (multiMode) {
+        // 每個 SKU 一條線
+        skuList.forEach((sku, i) => {
+            const data = MONTHS.map(m => skuMap[sku].monthly[m]?.sales || 0);
+            datasets.push({
+                label: sku + ' 銷售',
+                data,
+                borderColor: COLORS[i % COLORS.length],
+                backgroundColor: COLORS[i % COLORS.length] + '22',
+                fill: false, tension: 0.35, borderWidth: 2.5, pointRadius: 4
+            });
+        });
+    } else {
+        // 加總銷售 + 加總庫存
+        const aggSales = MONTHS.map(m => {
+            let s = 0;
+            skuList.forEach(sku => { s += (skuMap[sku].monthly[m]?.sales || 0); });
+            return s;
+        });
+        const aggClose = MONTHS.map(m => {
+            let s = 0;
+            skuList.forEach(sku => { s += (skuMap[sku].monthly[m]?.close || 0); });
+            return s;
+        });
+        datasets.push({
+            label: '銷售量', data: aggSales,
+            borderColor: COLORS[0], backgroundColor: COLORS[0] + '22',
+            fill: true, tension: 0.35, borderWidth: 2.5, pointRadius: 4, yAxisID: 'y'
+        });
+        datasets.push({
+            label: '期末庫存', data: aggClose,
+            borderColor: COLORS[2], backgroundColor: 'transparent',
+            fill: false, tension: 0.35, borderWidth: 2, borderDash: [6,3], pointRadius: 3, yAxisID: 'y'
+        });
+    }
+
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: MONTHS, datasets },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#8b90a8', font: { size: 12 } } }
+            },
+            scales: {
+                x: { ticks: { color: '#8b90a8' }, grid: { color: '#2e3150' } },
+                y: { ticks: { color: '#8b90a8' }, grid: { color: '#2e3150' } }
+            }
+        }
+    });
+
+    // ── Detail table ──
+    if (skuList.length === 0) {
+        tableBody.innerHTML = '<tr class="empty-row"><td colspan="6">此條件下無資料</td></tr>';
+        return;
+    }
+    skuList.forEach(sku => {
+        let sales = 0, open = 0, close = 0;
+        if (state.month === '全年度') {
+            Object.values(skuMap[sku].monthly).forEach(v => { sales += v.sales; open += v.open; close += v.close; });
+        } else {
+            const v = skuMap[sku].monthly[state.month] || { sales:0, open:0, close:0 };
+            sales = v.sales; open = v.open; close = v.close;
+        }
+        const avg   = Math.round((open + close) / 2);
+        const ratio = sales > 0 ? (avg / sales).toFixed(2) : '—';
+        const ratioClass = ratio === '—' ? 'ratio-ok' : (parseFloat(ratio) > 5 ? 'ratio-high' : 'ratio-low');
+        tableBody.innerHTML += `
+            <tr>
+                <td><strong style="color:var(--text)">${sku}</strong><br>
+                    <small style="color:var(--muted)">${skuMeta[sku]?.category||''} · ${skuMeta[sku]?.grade||''}</small></td>
+                <td style="color:var(--accent)">${sales.toLocaleString()}</td>
+                <td>${open.toLocaleString()}</td>
+                <td>${close.toLocaleString()}</td>
+                <td>${avg.toLocaleString()}</td>
+                <td><span class="ratio-tag ${ratioClass}">${ratio}</span></td>
+            </tr>`;
+    });
+
+    document.getElementById('chart-header').textContent =
+        `📈 ${state.store} · ${state.year}年 ${state.month} — 銷售與庫存趨勢`;
+}
+
+// ── 啟動 ──
+window.onload = loadAllData;
+</script>
+</body>
+</html>
