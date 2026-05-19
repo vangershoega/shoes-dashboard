@@ -482,11 +482,19 @@ function updateDashboard() {
     const multiMode = state.filters.sku.length > 0;
 
     // ── KPI 加總 ──
+    const MONTH_ORDER = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
     let totalSales = 0, totalOpen = 0, totalClose = 0;
     skuList.forEach(sku => {
         const m = skuMap[sku].monthly;
         if (state.month === '全年度') {
-            Object.values(m).forEach(v => { totalSales += v.sales; totalOpen += v.open; totalClose += v.close; });
+            // 銷售：全年加總
+            Object.values(m).forEach(v => { totalSales += v.sales; });
+            // 期初：取最早有資料月份的期初
+            const months = MONTH_ORDER.filter(mo => m[mo]);
+            if (months.length > 0) {
+                totalOpen  += m[months[0]].open;
+                totalClose += m[months[months.length - 1]].close;
+            }
         } else {
             const v = m[state.month] || { sales:0, open:0, close:0 };
             totalSales += v.sales; totalOpen += v.open; totalClose += v.close;
@@ -569,7 +577,15 @@ function updateDashboard() {
     skuList.forEach(sku => {
         let sales = 0, open = 0, close = 0;
         if (state.month === '全年度') {
-            Object.values(skuMap[sku].monthly).forEach(v => { sales += v.sales; open += v.open; close += v.close; });
+            const m = skuMap[sku].monthly;
+            // 銷售：全年加總
+            Object.values(m).forEach(v => { sales += v.sales; });
+            // 期初：最早月份的期初；期末：最晚月份的期末
+            const months = MONTH_ORDER.filter(mo => m[mo]);
+            if (months.length > 0) {
+                open  = m[months[0]].open;
+                close = m[months[months.length - 1]].close;
+            }
         } else {
             const v = skuMap[sku].monthly[state.month] || { sales:0, open:0, close:0 };
             sales = v.sales; open = v.open; close = v.close;
