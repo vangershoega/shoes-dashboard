@@ -489,12 +489,12 @@ function updateDashboard() {
         if (state.month === '全年度') {
             // 銷售：全年加總
             Object.values(m).forEach(v => { totalSales += v.sales; });
-            // 期初：取最早有資料月份的期初
-            const months = MONTH_ORDER.filter(mo => m[mo]);
-            if (months.length > 0) {
-                totalOpen  += m[months[0]].open;
-                totalClose += m[months[months.length - 1]].close;
-            }
+            // 期初：取最早有「非零期初」的月份
+            // 期末：取最晚有「非零期末」的月份
+            const monthsWithOpen  = MONTH_ORDER.filter(mo => m[mo] && m[mo].open  > 0);
+            const monthsWithClose = MONTH_ORDER.filter(mo => m[mo] && m[mo].close > 0);
+            if (monthsWithOpen.length  > 0) totalOpen  += m[monthsWithOpen[0]].open;
+            if (monthsWithClose.length > 0) totalClose += m[monthsWithClose[monthsWithClose.length - 1]].close;
         } else {
             const v = m[state.month] || { sales:0, open:0, close:0 };
             totalSales += v.sales; totalOpen += v.open; totalClose += v.close;
@@ -580,12 +580,11 @@ function updateDashboard() {
             const m = skuMap[sku].monthly;
             // 銷售：全年加總
             Object.values(m).forEach(v => { sales += v.sales; });
-            // 期初：最早月份的期初；期末：最晚月份的期末
-            const months = MONTH_ORDER.filter(mo => m[mo]);
-            if (months.length > 0) {
-                open  = m[months[0]].open;
-                close = m[months[months.length - 1]].close;
-            }
+            // 期初：最早有非零期初的月份；期末：最晚有非零期末的月份
+            const monthsWithOpen  = MONTH_ORDER.filter(mo => m[mo] && m[mo].open  > 0);
+            const monthsWithClose = MONTH_ORDER.filter(mo => m[mo] && m[mo].close > 0);
+            if (monthsWithOpen.length  > 0) open  = m[monthsWithOpen[0]].open;
+            if (monthsWithClose.length > 0) close = m[monthsWithClose[monthsWithClose.length - 1]].close;
         } else {
             const v = skuMap[sku].monthly[state.month] || { sales:0, open:0, close:0 };
             sales = v.sales; open = v.open; close = v.close;
