@@ -281,6 +281,12 @@ tbody tr:hover{background:var(--surface2);}
     </div>
     <div class="filter-row"><span class="filter-label">月份</span><div id="stMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
   </div>
+  <div class="kpi-grid">
+    <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="st-open">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="st-close">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-a"><h3>平均庫存</h3><div class="val" id="st-avg">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-s"><h3>庫銷比</h3><div class="val" id="st-ratio">—</div><div class="unit">倍（&lt;3 健康）</div></div>
+  </div>
   <div class="ov-grid">
     <div class="card" style="grid-column:1/-1;">
       <div class="card-title">🚦 庫存健康度總表
@@ -749,6 +755,16 @@ let stockTableData=[];
 function renderStock(){
   const store=state.store==='總通路'?'總通路':state.store;
   const data=getRaw(store,state.month);
+
+  // KPI
+  const kpi = state.month==='全年度' ? yearKPI(data) : singleKPI(data);
+  const avg = Math.round((kpi.open+kpi.close)/2);
+  const ratio = kpi.sales>0 ? (avg/kpi.sales).toFixed(1) : '—';
+  document.getElementById('st-open').textContent  = kpi.open.toLocaleString();
+  document.getElementById('st-close').textContent = kpi.close.toLocaleString();
+  document.getElementById('st-avg').textContent   = avg.toLocaleString();
+  document.getElementById('st-ratio').textContent = ratio;
+
   const skuMap={};
   data.forEach(r=>{
     if(!skuMap[r.sku]) skuMap[r.sku]={sales:0,close:0,cat:r.category,grade:r.grade};
