@@ -2,136 +2,178 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>商控戰情室</title>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-:root {
-  --bg:#0f1117; --surface:#1a1d2e; --surface2:#252840;
-  --accent:#4f8ef7; --accent2:#f7974f; --accent3:#4febb8;
-  --danger:#f74f4f; --warn:#f7d44f; --success:#4febb8;
-  --text:#e8eaf0; --muted:#8b90a8; --border:#2e3150; --radius:12px;
+:root{
+  --bg:#0f1117;--surface:#1a1d2e;--surface2:#252840;
+  --accent:#4f8ef7;--accent2:#f7974f;--accent3:#4febb8;
+  --danger:#f74f4f;--warn:#f7d44f;--success:#4febb8;
+  --text:#e8eaf0;--muted:#8b90a8;--border:#2e3150;--radius:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Microsoft JhengHei','微軟正黑體',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── Login ── */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:340px;text-align:center;}
+.login-logo{font-size:2.5em;margin-bottom:12px;}
+.login-box h2{font-size:1.2em;font-weight:800;margin-bottom:6px;}
+.login-box h2 span{color:var(--accent);}
+.login-box p{font-size:.82em;color:var(--muted);margin-bottom:24px;}
+.login-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:8px;font-size:16px;outline:none;text-align:center;letter-spacing:.15em;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;background:var(--accent);border:none;color:#fff;padding:12px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
+.login-err{color:var(--danger);font-size:.82em;margin-top:8px;min-height:18px;}
+
+/* ── Loading ── */
+#loading-overlay{position:fixed;inset:0;background:rgba(15,17,23,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:998;gap:16px;}
+.spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading-overlay p{color:var(--muted);font-size:.9em;}
+
 /* ── Nav ── */
-.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:0;position:sticky;top:0;z-index:100;}
-.nav-brand{font-size:1.1em;font-weight:800;color:var(--text);padding:16px 20px 16px 0;border-right:1px solid var(--border);margin-right:8px;white-space:nowrap;}
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;position:sticky;top:0;z-index:100;overflow-x:auto;}
+.nav::-webkit-scrollbar{height:0;}
+.nav-brand{font-size:1em;font-weight:800;padding:14px 16px 14px 0;border-right:1px solid var(--border);margin-right:4px;white-space:nowrap;flex-shrink:0;}
 .nav-brand span{color:var(--accent);}
-.nav-tab{border:none;background:transparent;color:var(--muted);padding:16px 18px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap;}
+.nav-tab{border:none;background:transparent;color:var(--muted);padding:14px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;transition:all .15s;}
 .nav-tab:hover{color:var(--text);}
 .nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-/* ── Layout ── */
-.page{display:none;padding:20px;}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;padding-left:12px;}
+.update-time{font-size:.72em;color:var(--muted);white-space:nowrap;}
+
+/* ── Page ── */
+.page{display:none;padding:16px;}
 .page.active{display:block;}
+
 /* ── Cards ── */
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;}
-.card-title{font-size:.85em;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;}
-/* ── KPI Grid ── */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
-@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
-.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;text-align:center;position:relative;overflow:hidden;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.card-title{font-size:.8em;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;position:relative;overflow:hidden;}
 .kpi-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
 .kpi-s::before{background:var(--accent);}
 .kpi-o::before{background:var(--accent2);}
 .kpi-c::before{background:var(--danger);}
 .kpi-a::before{background:var(--accent3);}
-.kpi-box h3{font-size:.75em;color:var(--muted);font-weight:600;letter-spacing:.05em;margin-bottom:8px;}
-.kpi-box .val{font-size:1.9em;font-weight:800;line-height:1;}
-.kpi-box .unit{font-size:.72em;color:var(--muted);margin-top:4px;}
+.kpi-box h3{font-size:.7em;color:var(--muted);font-weight:600;letter-spacing:.04em;margin-bottom:6px;}
+.kpi-box .val{font-size:1.7em;font-weight:800;line-height:1;}
+.kpi-box .unit{font-size:.7em;color:var(--muted);margin-top:3px;}
+.kpi-box .mom{font-size:.72em;font-weight:700;margin-top:4px;}
+.mom-up{color:var(--success);}
+.mom-down{color:var(--danger);}
+.mom-flat{color:var(--muted);}
 .kpi-s .val{color:var(--accent);}
 .kpi-o .val{color:var(--accent2);}
 .kpi-c .val{color:var(--danger);}
 .kpi-a .val{color:var(--accent3);}
+
 /* ── Store tabs ── */
-.store-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
-.stab{border:1px solid var(--border);background:transparent;color:var(--muted);padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;}
-.stab:hover{color:var(--text);border-color:var(--accent);}
+.store-tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+.stab{border:1px solid var(--border);background:transparent;color:var(--muted);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.stab:hover{color:var(--text);}
 .stab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-/* ── Filter row ── */
-.filter-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center;}
-.filter-label{font-size:.75em;color:var(--muted);font-weight:700;letter-spacing:.05em;white-space:nowrap;}
-.ftab{border:none;background:var(--surface2);color:var(--muted);padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;}
+
+/* ── Filter ── */
+.filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center;}
+.filter-label{font-size:.72em;color:var(--muted);font-weight:700;letter-spacing:.05em;white-space:nowrap;min-width:30px;}
+.ftab{border:none;background:var(--surface2);color:var(--muted);padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
 .ftab:hover{color:var(--text);}
 .ftab.active{background:var(--accent);color:#fff;}
-/* ── Chart ── */
-.chart-wrap{position:relative;height:300px;width:100%;}
-.chart-wrap-sm{position:relative;height:220px;width:100%;}
-/* ── Overview grid ── */
-.ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-@media(max-width:800px){.ov-grid{grid-template-columns:1fr;}}
-/* ── Alert list ── */
-.alert-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+
+/* ── Charts ── */
+.chart-wrap{position:relative;height:260px;width:100%;}
+.chart-wrap-sm{position:relative;height:200px;width:100%;}
+
+/* ── Grid ── */
+.ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:700px){.ov-grid{grid-template-columns:1fr;}}
+
+/* ── Rank list ── */
+.rank-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.rank-item:last-child{border-bottom:none;}
+.rank-num{font-size:.72em;font-weight:800;color:var(--muted);width:18px;text-align:center;flex-shrink:0;}
+.rank-bar-wrap{flex:1;background:var(--surface2);border-radius:4px;height:5px;overflow:hidden;}
+.rank-bar{height:5px;border-radius:4px;background:var(--accent);}
+.rank-name{font-size:.8em;color:var(--text);width:100px;font-weight:600;flex-shrink:0;}
+.rank-val{font-size:.8em;font-weight:700;color:var(--accent);min-width:45px;text-align:right;flex-shrink:0;}
+.rank-mom{font-size:.7em;font-weight:700;min-width:40px;text-align:right;flex-shrink:0;}
+
+/* ── Alert ── */
+.alert-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
 .alert-item:last-child{border-bottom:none;}
-.alert-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.alert-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
 .dot-red{background:var(--danger);}
 .dot-yellow{background:var(--warn);}
 .dot-green{background:var(--success);}
-.alert-sku{font-size:.85em;font-weight:700;color:var(--text);min-width:100px;}
-.alert-info{font-size:.78em;color:var(--muted);flex:1;}
-.alert-val{font-size:.85em;font-weight:700;}
-/* ── Top list ── */
-.rank-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
-.rank-item:last-child{border-bottom:none;}
-.rank-num{font-size:.75em;font-weight:800;color:var(--muted);width:20px;text-align:center;}
-.rank-bar-wrap{flex:1;background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;}
-.rank-bar{height:6px;border-radius:4px;background:var(--accent);transition:width .6s;}
-.rank-name{font-size:.82em;color:var(--text);width:110px;font-weight:600;}
-.rank-val{font-size:.82em;font-weight:700;color:var(--accent);min-width:50px;text-align:right;}
+.alert-sku{font-size:.82em;font-weight:700;color:var(--text);min-width:90px;}
+.alert-info{font-size:.74em;color:var(--muted);flex:1;}
+.alert-val{font-size:.82em;font-weight:700;flex-shrink:0;}
+
 /* ── Table ── */
-.table-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:.85em;}
-thead th{background:var(--surface2);color:var(--muted);font-size:.72em;text-transform:uppercase;letter-spacing:.06em;padding:9px 12px;text-align:center;border-bottom:1px solid var(--border);}
-tbody td{padding:10px 12px;border-bottom:1px solid var(--border);text-align:center;font-weight:500;}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:.82em;}
+thead th{background:var(--surface2);color:var(--muted);font-size:.7em;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:center;font-weight:500;}
 tbody tr:hover{background:var(--surface2);}
-.badge{padding:3px 10px;border-radius:20px;font-size:.78em;font-weight:700;}
+.badge{padding:2px 8px;border-radius:20px;font-size:.76em;font-weight:700;white-space:nowrap;}
 .badge-red{background:rgba(247,79,79,.18);color:var(--danger);}
 .badge-yellow{background:rgba(247,212,79,.18);color:var(--warn);}
 .badge-green{background:rgba(79,235,184,.18);color:var(--success);}
 .badge-blue{background:rgba(79,142,247,.18);color:var(--accent);}
+.badge-gray{background:rgba(139,144,168,.18);color:var(--muted);}
+
 /* ── SKU search ── */
-.sku-search-row{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
-.sku-search-input{flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:13px;outline:none;}
+.sku-search-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.sku-search-input{flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px;outline:none;}
 .sku-search-input:focus{border-color:var(--accent);}
-.sku-panel{max-height:130px;overflow-y:auto;}
+.sku-panel{max-height:120px;overflow-y:auto;margin-top:4px;}
 .sku-panel::-webkit-scrollbar{width:4px;}
 .sku-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
-.selected-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;min-height:0;}
-.stag{background:var(--accent);color:#fff;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:5px;cursor:default;}
-.stag-x{cursor:pointer;opacity:.8;font-size:13px;}
-/* ── Loading ── */
-#loading-overlay{position:fixed;inset:0;background:rgba(15,17,23,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px;}
-.spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-#loading-overlay p{color:var(--muted);font-size:.9em;}
-/* ── AI ── */
-.ai-btn{background:linear-gradient(135deg,#4f8ef7,#a78bfa);border:none;color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
-.ai-btn:disabled{opacity:.5;cursor:default;}
-#aiOut{color:var(--muted);font-size:.9em;line-height:1.9;margin-top:14px;}
-/* ── year select ── */
-.year-sel{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;}
+.selected-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.stag{background:var(--accent);color:#fff;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;}
+.stag-x{cursor:pointer;opacity:.8;}
 
-/* ── Login ── */
-#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:340px;text-align:center;}
-.login-box h2{font-size:1.3em;font-weight:800;margin-bottom:6px;}
-.login-box h2 span{color:var(--accent);}
-.login-box p{font-size:.85em;color:var(--muted);margin-bottom:24px;}
-.login-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:8px;font-size:15px;outline:none;text-align:center;letter-spacing:.1em;margin-bottom:12px;}
-.login-input:focus{border-color:var(--accent);}
-.login-btn{width:100%;background:var(--accent);border:none;color:#fff;padding:12px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .18s;}
-.login-btn:hover{opacity:.85;}
-.login-err{color:var(--danger);font-size:.82em;margin-top:8px;min-height:18px;}
+/* ── Export btn ── */
+.export-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.export-btn:hover{color:var(--text);border-color:var(--accent);}
+
+/* ── AI ── */
+.ai-btn{background:linear-gradient(135deg,#4f8ef7,#a78bfa);border:none;color:#fff;padding:9px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.ai-btn:disabled{opacity:.5;cursor:default;}
+#aiOut{color:var(--muted);font-size:.88em;line-height:1.9;margin-top:14px;}
+
+/* ── Year select ── */
+.year-sel{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+
+/* ── Restock badge ── */
+.restock-badge{background:rgba(247,79,79,.15);border:1px solid rgba(247,79,79,.4);color:var(--danger);padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:700;}
+
+/* ── Mobile tweaks ── */
+@media(max-width:480px){
+  .nav-brand{font-size:.9em;padding:12px 10px 12px 0;}
+  .nav-tab{font-size:12px;padding:12px 10px;}
+  .page{padding:10px;}
+  .card{padding:14px;}
+  .kpi-box .val{font-size:1.5em;}
+}
 </style>
 </head>
 <body>
 
-
+<!-- Login -->
 <div id="login-screen">
   <div class="login-box">
-    <h2>📊 商控 <span>戰情室</span></h2>
+    <div class="login-logo">📊</div>
+    <h2>商控 <span>戰情室</span></h2>
     <p>請輸入密碼以進入系統</p>
     <input class="login-input" id="pwInput" type="password" placeholder="••••••••"
       onkeydown="if(event.key==='Enter')checkPw()">
@@ -140,12 +182,13 @@ tbody tr:hover{background:var(--surface2);}
   </div>
 </div>
 
-<div id="loading-overlay">
+<!-- Loading -->
+<div id="loading-overlay" style="display:none;">
   <div class="spinner"></div>
   <p>正在從 Firebase 載入資料…</p>
 </div>
 
-<!-- ── Nav ── -->
+<!-- Nav -->
 <nav class="nav">
   <div class="nav-brand">📊 商控 <span>戰情室</span></div>
   <button class="nav-tab active" onclick="switchPage('overview',this)">總覽</button>
@@ -153,48 +196,41 @@ tbody tr:hover{background:var(--surface2);}
   <button class="nav-tab" onclick="switchPage('stock',this)">庫存管理</button>
   <button class="nav-tab" onclick="switchPage('query',this)">查詢</button>
   <button class="nav-tab" onclick="switchPage('ai',this)">AI 報告</button>
+  <div class="nav-right">
+    <span class="update-time" id="updateTime">—</span>
+  </div>
 </nav>
 
-<!-- ════════════════════════════════════════
-     總覽頁
-════════════════════════════════════════ -->
+<!-- ═══ 總覽 ═══ -->
 <div id="page-overview" class="page active">
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-    <select class="year-sel" id="ovYear" onchange="state.year=this.value;refreshAll();">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <select class="year-sel" id="ovYear" onchange="state.year=this.value;syncYears('ovYear');refreshAll();">
       <option value="113">113 年</option><option value="114">114 年</option>
       <option value="115" selected>115 年</option><option value="116">116 年</option>
     </select>
-    <div class="filter-row" style="margin:0;">
-      <span class="filter-label">月份</span>
-      <div id="ovMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-    </div>
+    <div id="ovMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
   </div>
-
-  <!-- KPI -->
   <div class="kpi-grid">
-    <div class="kpi-box kpi-s"><h3>全通路銷售</h3><div class="val" id="ov-sales">—</div><div class="unit">雙</div></div>
-    <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="ov-open">—</div><div class="unit">雙</div></div>
-    <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="ov-close">—</div><div class="unit">雙</div></div>
-    <div class="kpi-box kpi-a"><h3>整體庫銷比</h3><div class="val" id="ov-ratio">—</div><div class="unit">倍（&lt;3 健康）</div></div>
+    <div class="kpi-box kpi-s"><h3>全通路銷售</h3><div class="val" id="ov-sales">—</div><div class="unit">雙</div><div class="mom" id="ov-sales-mom"></div></div>
+    <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="ov-open">—</div><div class="unit">雙</div><div class="mom" id="ov-open-mom"></div></div>
+    <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="ov-close">—</div><div class="unit">雙</div><div class="mom" id="ov-close-mom"></div></div>
+    <div class="kpi-box kpi-a"><h3>整體庫銷比</h3><div class="val" id="ov-ratio">—</div><div class="unit">倍（&lt;3 健康）</div><div class="mom" id="ov-ratio-mom"></div></div>
   </div>
-
   <div class="ov-grid">
-    <!-- 熱銷 TOP10 -->
     <div class="card">
       <div class="card-title">🔥 熱銷型號 TOP 10</div>
       <div id="top10List"></div>
     </div>
-    <!-- 門市業績 -->
     <div class="card">
-      <div class="card-title">🏪 門市業績排行</div>
+      <div class="card-title">🏪 門市業績排行
+        <span style="font-size:.8em;color:var(--muted);font-weight:400;">月增減率</span>
+      </div>
       <div id="storeRankList"></div>
     </div>
-    <!-- 庫銷比警示 -->
     <div class="card">
-      <div class="card-title">🚨 庫銷比警示（&gt;5 紅燈 · 3-5 黃燈）</div>
+      <div class="card-title">🚨 庫銷比警示</div>
       <div id="alertList"></div>
     </div>
-    <!-- 類別銷售佔比 -->
     <div class="card">
       <div class="card-title">📦 類別銷售佔比</div>
       <div class="chart-wrap-sm"><canvas id="catPieChart"></canvas></div>
@@ -202,32 +238,19 @@ tbody tr:hover{background:var(--surface2);}
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     銷售分析頁
-════════════════════════════════════════ -->
+<!-- ═══ 銷售分析 ═══ -->
 <div id="page-sales" class="page">
   <div class="card">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-      <select class="year-sel" id="saYear" onchange="state.year=this.value;refreshAll();">
-        <option value="113">113 年</option><option value="114">114 年</option>
-        <option value="115" selected>115 年</option><option value="116">116 年</option>
-      </select>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <select class="year-sel" id="saYear" onchange="state.year=this.value;syncYears('saYear');refreshAll();"></select>
       <div class="store-tabs" id="saStoreTabs" style="margin:0;"></div>
     </div>
-    <div class="filter-row">
-      <span class="filter-label">月份</span>
-      <div id="saMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-    </div>
-    <div class="filter-row">
-      <span class="filter-label">類別</span>
-      <div id="saCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-    </div>
+    <div class="filter-row"><span class="filter-label">月份</span><div id="saMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div class="filter-row"><span class="filter-label">類別</span><div id="saCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
   </div>
-
-  <!-- 趨勢圖 + 月增減率 -->
   <div class="ov-grid">
     <div class="card" style="grid-column:1/-1;">
-      <div class="card-title">📈 月銷售趨勢</div>
+      <div class="card-title">📈 月銷售趨勢（含月增減率）</div>
       <div class="chart-wrap"><canvas id="saTrendChart"></canvas></div>
     </div>
     <div class="card">
@@ -239,7 +262,7 @@ tbody tr:hover{background:var(--surface2);}
       <div class="chart-wrap-sm"><canvas id="saStoreChart"></canvas></div>
     </div>
     <div class="card">
-      <div class="card-title">📊 新款 vs 舊款 銷售佔比</div>
+      <div class="card-title">📊 新款 vs 舊款</div>
       <div class="chart-wrap-sm"><canvas id="saNewOldChart"></canvas></div>
     </div>
     <div class="card">
@@ -249,36 +272,29 @@ tbody tr:hover{background:var(--surface2);}
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     庫存管理頁
-════════════════════════════════════════ -->
+<!-- ═══ 庫存管理 ═══ -->
 <div id="page-stock" class="page">
   <div class="card">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-      <select class="year-sel" id="stYear" onchange="state.year=this.value;refreshAll();">
-        <option value="113">113 年</option><option value="114">114 年</option>
-        <option value="115" selected>115 年</option><option value="116">116 年</option>
-      </select>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <select class="year-sel" id="stYear" onchange="state.year=this.value;syncYears('stYear');refreshAll();"></select>
       <div class="store-tabs" id="stStoreTabs" style="margin:0;"></div>
     </div>
-    <div class="filter-row">
-      <span class="filter-label">月份</span>
-      <div id="stMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
-    </div>
+    <div class="filter-row"><span class="filter-label">月份</span><div id="stMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
   </div>
-
   <div class="ov-grid">
     <div class="card" style="grid-column:1/-1;">
-      <div class="card-title">🚦 庫存健康度總表</div>
+      <div class="card-title">🚦 庫存健康度總表
+        <button class="export-btn" onclick="exportStockExcel()">📥 匯出 Excel</button>
+      </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>型號</th><th>類別</th><th>銷售</th><th>期末庫存</th><th>庫銷比</th><th>狀態</th></tr></thead>
+          <thead><tr><th>型號</th><th>類別</th><th>銷售</th><th>期末庫存</th><th>庫銷比</th><th>狀態</th><th>建議</th></tr></thead>
           <tbody id="stockHealthTable"></tbody>
         </table>
       </div>
     </div>
     <div class="card">
-      <div class="card-title">📉 滯銷商品（零銷售但有庫存）</div>
+      <div class="card-title">📉 滯銷商品（零銷售有庫存）</div>
       <div id="deadStockList"></div>
     </div>
     <div class="card">
@@ -288,107 +304,112 @@ tbody tr:hover{background:var(--surface2);}
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     查詢頁（原本功能）
-════════════════════════════════════════ -->
+<!-- ═══ 查詢 ═══ -->
 <div id="page-query" class="page">
   <div class="card">
-    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
-      <select class="year-sel" id="qYear" onchange="state.year=this.value;refreshAll();">
-        <option value="113">113 年</option><option value="114">114 年</option>
-        <option value="115" selected>115 年</option><option value="116">116 年</option>
-      </select>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <select class="year-sel" id="qYear" onchange="state.year=this.value;syncYears('qYear');refreshAll();"></select>
       <div class="store-tabs" id="qStoreTabs" style="margin:0;"></div>
     </div>
     <div class="filter-row"><span class="filter-label">月份</span><div id="qMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div class="filter-row"><span class="filter-label">級別</span><div id="qGradeTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div class="filter-row"><span class="filter-label">類別</span><div id="qCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
-    <div style="margin-top:10px;">
+    <div style="margin-top:8px;">
       <div class="sku-search-row">
-        <span class="filter-label" style="white-space:nowrap;">型號</span>
-        <input class="sku-search-input" id="skuSearch" placeholder="輸入關鍵字篩選型號..." oninput="filterSkuTabs(this.value)">
-        <button class="ftab" onclick="clearSkus()" style="white-space:nowrap;">清除</button>
+        <span class="filter-label">型號</span>
+        <input class="sku-search-input" id="skuSearch" placeholder="輸入關鍵字篩選..." oninput="filterSkuTabs(this.value)">
+        <button class="ftab" onclick="clearSkus()">清除</button>
         <button class="ftab" onclick="toggleSkuPanel()" id="skuToggleBtn">展開 ▼</button>
       </div>
       <div id="selectedTags" class="selected-tags"></div>
       <div id="skuPanel" style="display:none;" class="sku-panel">
-        <div style="display:flex;flex-wrap:wrap;gap:5px;" id="skuTabsContainer"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;" id="skuTabsContainer"></div>
       </div>
     </div>
   </div>
-
   <div class="kpi-grid">
-    <div class="kpi-box kpi-s"><h3>銷售總量</h3><div class="val" id="q-sales">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-s"><h3>銷售總量</h3><div class="val" id="q-sales">—</div><div class="unit">雙</div><div class="mom" id="q-sales-mom"></div></div>
     <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="q-open">—</div><div class="unit">雙</div></div>
     <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="q-close">—</div><div class="unit">雙</div></div>
     <div class="kpi-box kpi-a"><h3>平均庫存</h3><div class="val" id="q-avg">—</div><div class="unit">雙</div></div>
   </div>
-
   <div class="card">
-    <div class="card-title" id="qChartTitle">📈 趨勢圖</div>
+    <div class="card-title">📈 趨勢圖</div>
     <div class="chart-wrap"><canvas id="qTrendChart"></canvas></div>
   </div>
   <div class="card">
-    <div class="card-title">📋 型號明細</div>
+    <div class="card-title">📋 型號明細
+      <button class="export-btn" onclick="exportQueryExcel()">📥 匯出 Excel</button>
+    </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>型號</th><th>類別</th><th>級別</th><th>銷售</th><th>期初</th><th>期末</th><th>平均</th><th>庫銷比</th></tr></thead>
+        <thead><tr><th>型號</th><th>類別</th><th>級別</th><th>銷售</th><th>月增減</th><th>期初</th><th>期末</th><th>平均</th><th>庫銷比</th></tr></thead>
         <tbody id="qDetailTable"></tbody>
       </table>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════
-     AI 報告頁
-════════════════════════════════════════ -->
+<!-- ═══ AI 報告 ═══ -->
 <div id="page-ai" class="page">
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
       <div>
-        <div class="card-title">🤖 AI 智能分析報告</div>
-        <p style="font-size:.82em;color:var(--muted);">根據目前總覽篩選條件，自動產生銷售與庫存分析。</p>
+        <div class="card-title" style="margin-bottom:4px;">🤖 AI 智能分析報告</div>
+        <p style="font-size:.8em;color:var(--muted);">根據總覽條件，自動產生銷售與庫存完整分析。</p>
       </div>
       <button class="ai-btn" onclick="generateAI()" id="aiBtn">✨ 產生報告</button>
     </div>
-    <div id="aiOut">點擊「產生報告」，AI 將自動分析最暢銷商品、業績異常門市、庫存風險並給出建議。</div>
+    <div id="aiOut" style="color:var(--muted);font-size:.88em;line-height:1.9;margin-top:16px;">
+      點擊「產生報告」，AI 將分析最暢銷商品、業績異常門市、庫存風險並提供行動建議。
+    </div>
   </div>
 </div>
 
 <script>
-const firebaseConfig = {
+const API_KEY = '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';
+const RESTOCK_THRESHOLD = 10; // 低於此庫存顯示補貨建議
+
+firebase.initializeApp({
   apiKey:"AIzaSyAimgD7BUG3AiLis9IVgmXawUWQ_kSIpt8",
   authDomain:"shoes-dashboard-69b31.firebaseapp.com",
   projectId:"shoes-dashboard-69b31",
   storageBucket:"shoes-dashboard-69b31.firebasestorage.app",
   messagingSenderId:"1066943168381",
   appId:"1:1066943168381:web:dff73609a66aa9b1ba1614"
-};
-firebase.initializeApp(firebaseConfig);
+});
 const db = firebase.firestore();
 
-const MONTHS = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
-const STORES = ['總通路','官網','A13','南西','台中','南紡','東區','MO店+','特賣'];
-const COLORS = ['#4f8ef7','#f7974f','#4febb8','#f74f4f','#a78bfa','#fbbf24','#34d399','#f472b6','#60a5fa','#fb923c'];
+const MONTHS=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+const STORES=['總通路','官網','A13','南西','台中','南紡','東區','MO店+','特賣'];
+const COLORS=['#4f8ef7','#f7974f','#4febb8','#f74f4f','#a78bfa','#fbbf24','#34d399','#f472b6','#60a5fa','#fb923c'];
+const YEAR_OPTS = ['113','114','115','116'];
 
-let rawData = [];
-let skuMeta = {};
-let charts = {};
+let rawData=[], skuMeta={}, charts={};
+let state={year:'115',store:'總通路',month:'五月',filters:{grade:[],category:[],sku:[]}};
+let skuPanelOpen=false;
 
-let state = {
-  year:'115', store:'總通路', month:'五月',
-  filters:{ grade:[], category:[], sku:[] }
-};
-let skuPanelOpen = false;
+// ── 密碼 ──
+function checkPw(){
+  if(document.getElementById('pwInput').value==='10344362'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('loading-overlay').style.display='flex';
+    loadAllData();
+  } else {
+    document.getElementById('pwErr').textContent='密碼錯誤，請再試一次';
+    document.getElementById('pwInput').value='';
+  }
+}
 
+// ── Firebase ──
 async function loadAllData(){
   try{
-    const snap = await db.collection('shoes_data').get();
-    rawData = snap.docs.map(d=>d.data());
-    rawData.forEach(r=>{
-      if(!skuMeta[r.sku]) skuMeta[r.sku]={category:r.category||'未分類',grade:r.grade||'未分級'};
-    });
+    const snap=await db.collection('shoes_data').get();
+    rawData=snap.docs.map(d=>d.data());
+    rawData.forEach(r=>{ if(!skuMeta[r.sku]) skuMeta[r.sku]={category:r.category||'未分類',grade:r.grade||'未分級'}; });
     document.getElementById('loading-overlay').style.display='none';
+    // 更新時間
+    document.getElementById('updateTime').textContent='資料更新：'+new Date().toLocaleDateString('zh-TW');
     buildFilters();
     refreshAll();
   }catch(e){
@@ -397,177 +418,136 @@ async function loadAllData(){
   }
 }
 
+// ── 同步所有年份選單 ──
+function syncYears(sourceId){
+  ['ovYear','saYear','stYear','qYear'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&id!==sourceId) el.value=state.year;
+  });
+}
+
+// ── 建立篩選器 ──
 function buildFilters(){
-  const grades = [...new Set(rawData.map(r=>r.grade).filter(Boolean))].sort();
-  const cats   = [...new Set(rawData.map(r=>r.category).filter(Boolean))].sort();
+  const grades=[...new Set(rawData.map(r=>r.grade).filter(Boolean))].sort();
+  const cats=[...new Set(rawData.map(r=>r.category).filter(Boolean))].sort();
 
-  // 月份tabs（多處共用）
+  // 年份
+  ['ovYear','saYear','stYear','qYear'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.innerHTML=YEAR_OPTS.map(y=>`<option value="${y}"${y==='115'?' selected':''}>${y} 年</option>`).join('');
+  });
+
+  // 月份
   ['ovMonthTabs','saMonthTabs','stMonthTabs','qMonthTabs'].forEach(id=>{
-    const el = document.getElementById(id);
+    const el=document.getElementById(id);
     if(!el) return;
-    el.innerHTML = `<button class="ftab ${state.month==='全年度'?'active':''}" onclick="setMonth('全年度',this,'${id}')">全年度</button>`
-      + MONTHS.map(m=>`<button class="ftab ${state.month===m?'active':''}" onclick="setMonth('${m}',this,'${id}')">${m}</button>`).join('');
+    el.innerHTML=`<button class="ftab ${state.month==='全年度'?'active':''}" onclick="setMonth('全年度',this,'${id}')">全年度</button>`
+      +MONTHS.map(m=>`<button class="ftab ${state.month===m?'active':''}" onclick="setMonth('${m}',this,'${id}')">${m}</button>`).join('');
   });
 
-  // 門市tabs
+  // 門市
   ['saStoreTabs','stStoreTabs','qStoreTabs'].forEach(id=>{
-    const el = document.getElementById(id);
+    const el=document.getElementById(id);
     if(!el) return;
-    el.innerHTML = STORES.map(s=>`<button class="stab ${state.store===s?'active':''}" onclick="setStore('${s}',this,'${id}')">${s}</button>`).join('');
+    el.innerHTML=STORES.map(s=>`<button class="stab ${state.store===s?'active':''}" onclick="setStore('${s}',this,'${id}')">${s}</button>`).join('');
   });
 
-  // 類別tabs
+  // 類別
   ['saCatTabs','qCatTabs'].forEach(id=>{
-    const el = document.getElementById(id);
+    const el=document.getElementById(id);
     if(!el) return;
-    el.innerHTML = `<button class="ftab active" onclick="toggleMultiF('category','全類別',this,'${id}')">全類別</button>`
-      + cats.map(c=>`<button class="ftab" onclick="toggleMultiF('category','${c}',this,'${id}')">${c}</button>`).join('');
+    el.innerHTML=`<button class="ftab active" onclick="toggleF('category','全類別',this,'${id}')">全類別</button>`
+      +cats.map(c=>`<button class="ftab" onclick="toggleF('category','${c}',this,'${id}')">${c}</button>`).join('');
   });
 
-  // 級別tabs
-  const gradeEl = document.getElementById('qGradeTabs');
-  if(gradeEl){
-    gradeEl.innerHTML = `<button class="ftab active" onclick="toggleMultiF('grade','全級別',this,'qGradeTabs')">全級別</button>`
-      + grades.map(g=>`<button class="ftab" onclick="toggleMultiF('grade','${g}',this,'qGradeTabs')">${g}</button>`).join('');
-  }
+  // 級別
+  const gEl=document.getElementById('qGradeTabs');
+  if(gEl) gEl.innerHTML=`<button class="ftab active" onclick="toggleF('grade','全級別',this,'qGradeTabs')">全級別</button>`
+    +grades.map(g=>`<button class="ftab" onclick="toggleF('grade','${g}',this,'qGradeTabs')">${g}</button>`).join('');
 
   renderSkuTabs();
 }
 
-function setMonth(m, el, groupId){
-  state.month = m;
-  document.querySelectorAll(`#${groupId} .ftab`).forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  // 同步其他月份欄
+function setMonth(m,el,gid){
+  state.month=m;
   ['ovMonthTabs','saMonthTabs','stMonthTabs','qMonthTabs'].forEach(id=>{
-    if(id===groupId) return;
-    document.querySelectorAll(`#${id} .ftab`).forEach(b=>{
-      b.classList.toggle('active', b.textContent===m);
-    });
+    document.querySelectorAll(`#${id} .ftab`).forEach(b=>b.classList.toggle('active',b.textContent===m));
   });
   refreshAll();
 }
-
-function setStore(s, el, groupId){
-  state.store = s;
-  document.querySelectorAll(`#${groupId} .stab`).forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
+function setStore(s,el,gid){
+  state.store=s;
   ['saStoreTabs','stStoreTabs','qStoreTabs'].forEach(id=>{
-    if(id===groupId) return;
-    document.querySelectorAll(`#${id} .stab`).forEach(b=>{
-      b.classList.toggle('active', b.textContent===s);
-    });
+    document.querySelectorAll(`#${id} .stab`).forEach(b=>b.classList.toggle('active',b.textContent===s));
   });
   refreshAll();
 }
-
-function toggleMultiF(type, val, el, groupId){
-  const arr = state.filters[type];
-  const container = document.getElementById(groupId);
-  if(val.includes('全')){
-    arr.length=0;
-    container.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));
-    el.classList.add('active');
-  } else {
-    container.firstElementChild.classList.remove('active');
-    const i=arr.indexOf(val);
-    if(i>-1) arr.splice(i,1); else arr.push(val);
-    el.classList.toggle('active');
-    if(arr.length===0) container.firstElementChild.classList.add('active');
-  }
-  if(type==='category'){ state.filters.sku=[]; renderSkuTabs(); }
+function toggleF(type,val,el,gid){
+  const arr=state.filters[type];
+  const cont=document.getElementById(gid);
+  if(val.includes('全')){arr.length=0;cont.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+  else{cont.firstElementChild.classList.remove('active');const i=arr.indexOf(val);if(i>-1)arr.splice(i,1);else arr.push(val);el.classList.toggle('active');if(arr.length===0)cont.firstElementChild.classList.add('active');}
+  if(type==='category'){state.filters.sku=[];renderSkuTabs();}
   refreshAll();
 }
-
 function renderSkuTabs(){
-  const container = document.getElementById('skuTabsContainer');
-  if(!container) return;
-  let skus = Object.keys(skuMeta);
+  const cont=document.getElementById('skuTabsContainer');
+  if(!cont) return;
+  let skus=Object.keys(skuMeta);
   if(state.filters.category.length) skus=skus.filter(s=>state.filters.category.includes(skuMeta[s].category));
-  if(state.filters.grade.length)    skus=skus.filter(s=>state.filters.grade.includes(skuMeta[s].grade));
+  if(state.filters.grade.length) skus=skus.filter(s=>state.filters.grade.includes(skuMeta[s].grade));
   skus.sort();
-  container.innerHTML = `<button class="ftab ${state.filters.sku.length===0?'active':''}" onclick="toggleSkuFilter('全型號',this)">全型號</button>`
-    + skus.map(s=>`<button class="ftab ${state.filters.sku.includes(s)?'active':''}" onclick="toggleSkuFilter('${s}',this)">${s}</button>`).join('');
+  cont.innerHTML=`<button class="ftab ${state.filters.sku.length===0?'active':''}" onclick="toggleSku('全型號',this)">全型號</button>`
+    +skus.map(s=>`<button class="ftab ${state.filters.sku.includes(s)?'active':''}" onclick="toggleSku('${s}',this)">${s}</button>`).join('');
 }
-
-function toggleSkuFilter(val, el){
-  if(val==='全型號'){
-    state.filters.sku=[];
-    document.querySelectorAll('#skuTabsContainer .ftab').forEach(b=>b.classList.remove('active'));
-    el.classList.add('active');
-  } else {
-    document.querySelector('#skuTabsContainer .ftab').classList.remove('active');
-    const i=state.filters.sku.indexOf(val);
-    if(i>-1) state.filters.sku.splice(i,1); else state.filters.sku.push(val);
-    el.classList.toggle('active');
-    if(state.filters.sku.length===0) document.querySelector('#skuTabsContainer .ftab').classList.add('active');
-  }
-  updateTags(); refreshAll();
+function toggleSku(val,el){
+  if(val==='全型號'){state.filters.sku=[];document.querySelectorAll('#skuTabsContainer .ftab').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+  else{document.querySelector('#skuTabsContainer .ftab').classList.remove('active');const i=state.filters.sku.indexOf(val);if(i>-1)state.filters.sku.splice(i,1);else state.filters.sku.push(val);el.classList.toggle('active');if(state.filters.sku.length===0)document.querySelector('#skuTabsContainer .ftab').classList.add('active');}
+  updateTags();refreshAll();
 }
-
 function filterSkuTabs(kw){
   if(kw&&!skuPanelOpen){skuPanelOpen=true;document.getElementById('skuPanel').style.display='block';document.getElementById('skuToggleBtn').textContent='收起 ▲';}
   document.querySelectorAll('#skuTabsContainer .ftab').forEach(b=>{
     if(b.textContent==='全型號'){b.style.display='';return;}
-    b.style.display = b.textContent.includes(kw)?'':'none';
+    b.style.display=b.textContent.includes(kw)?'':'none';
   });
 }
-function toggleSkuPanel(){
-  skuPanelOpen=!skuPanelOpen;
-  document.getElementById('skuPanel').style.display=skuPanelOpen?'block':'none';
-  document.getElementById('skuToggleBtn').textContent=skuPanelOpen?'收起 ▲':'展開 ▼';
-}
-function clearSkus(){
-  state.filters.sku=[];
-  document.getElementById('skuSearch').value='';
-  renderSkuTabs(); updateTags(); refreshAll();
-}
-function removeSku(s){
-  state.filters.sku=state.filters.sku.filter(x=>x!==s);
-  renderSkuTabs(); updateTags(); refreshAll();
-}
+function toggleSkuPanel(){skuPanelOpen=!skuPanelOpen;document.getElementById('skuPanel').style.display=skuPanelOpen?'block':'none';document.getElementById('skuToggleBtn').textContent=skuPanelOpen?'收起 ▲':'展開 ▼';}
+function clearSkus(){state.filters.sku=[];document.getElementById('skuSearch').value='';renderSkuTabs();updateTags();refreshAll();}
+function removeSku(s){state.filters.sku=state.filters.sku.filter(x=>x!==s);renderSkuTabs();updateTags();refreshAll();}
 function updateTags(){
   const el=document.getElementById('selectedTags');
-  if(!el) return;
-  el.innerHTML=state.filters.sku.map(s=>`<span class="stag">${s}<span class="stag-x" onclick="removeSku('${s}')">×</span></span>`).join('');
+  if(el) el.innerHTML=state.filters.sku.map(s=>`<span class="stag">${s}<span class="stag-x" onclick="removeSku('${s}')">×</span></span>`).join('');
 }
-
-function switchPage(name, el){
+function switchPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   el.classList.add('active');
 }
 
-// ── 資料過濾 ──
-function getFiltered(overrideStore){
-  const store = overrideStore || state.store;
+// ── 資料工具 ──
+function getFiltered(overStore,overMonth){
+  const store=overStore||state.store, month=overMonth||state.month;
   return rawData.filter(r=>{
-    if(r.year!==state.year) return false;
-    if(r.store!==store) return false;
-    if(state.month!=='全年度'&&r.month!==state.month) return false;
+    if(r.year!==state.year||r.store!==store) return false;
+    if(month!=='全年度'&&r.month!==month) return false;
     if(state.filters.grade.length&&!state.filters.grade.includes(r.grade)) return false;
     if(state.filters.category.length&&!state.filters.category.includes(r.category)) return false;
     if(state.filters.sku.length&&!state.filters.sku.includes(r.sku)) return false;
     return true;
   });
 }
-function getFilteredStore(store, month){
-  return rawData.filter(r=>{
-    if(r.year!==state.year||r.store!==store) return false;
-    if(month&&month!=='全年度'&&r.month!==month) return false;
-    return true;
-  });
+function getRaw(store,month){
+  return rawData.filter(r=>r.year===state.year&&r.store===store&&(month==='全年度'||r.month===month));
 }
-
-// ── 彙總輔助 ──
-const MO = MONTHS;
 function aggByMonth(data){
   const m={};
   data.forEach(r=>{
     if(!m[r.month]) m[r.month]={sales:0,open:0,close:0};
     m[r.month].sales+=parseInt(r.sales)||0;
-    m[r.month].open +=parseInt(r.opening_stock)||0;
+    m[r.month].open+=parseInt(r.opening_stock)||0;
     m[r.month].close+=parseInt(r.closing_stock)||0;
   });
   return m;
@@ -576,10 +556,10 @@ function yearKPI(data){
   const m=aggByMonth(data);
   let sales=0,open=0,close=0;
   Object.values(m).forEach(v=>sales+=v.sales);
-  const mWithOpen=MO.filter(mo=>m[mo]&&m[mo].open>0);
-  const mWithClose=MO.filter(mo=>m[mo]&&m[mo].close>0);
-  if(mWithOpen.length) open=m[mWithOpen[0]].open;
-  if(mWithClose.length) close=m[mWithClose[mWithClose.length-1]].close;
+  const mO=MONTHS.filter(mo=>m[mo]&&m[mo].open>0);
+  const mC=MONTHS.filter(mo=>m[mo]&&m[mo].close>0);
+  if(mO.length) open=m[mO[0]].open;
+  if(mC.length) close=m[mC[mC.length-1]].close;
   return {sales,open,close};
 }
 function singleKPI(data){
@@ -587,111 +567,149 @@ function singleKPI(data){
   data.forEach(r=>{sales+=parseInt(r.sales)||0;open+=parseInt(r.opening_stock)||0;close+=parseInt(r.closing_stock)||0;});
   return {sales,open,close};
 }
-function getKPI(data){
-  return state.month==='全年度'?yearKPI(data):singleKPI(data);
+function getKPI(data){return state.month==='全年度'?yearKPI(data):singleKPI(data);}
+
+// 月增減率
+function getMoM(store, curMonth){
+  const idx=MONTHS.indexOf(curMonth);
+  if(idx<=0) return null;
+  const prevMonth=MONTHS[idx-1];
+  const cur=getRaw(store,curMonth).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+  const prev=getRaw(store,prevMonth).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+  if(prev===0) return null;
+  return Math.round((cur-prev)/prev*100);
+}
+function momHtml(pct){
+  if(pct===null||pct===undefined) return '';
+  if(pct>0) return `<span class="mom mom-up">▲ ${pct}%</span>`;
+  if(pct<0) return `<span class="mom mom-down">▼ ${Math.abs(pct)}%</span>`;
+  return `<span class="mom mom-flat">— 持平</span>`;
 }
 
 function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
-function makeChart(id, type, data, options){
+function makeChart(id,type,data,opts){
   destroyChart(id);
   const ctx=document.getElementById(id);
   if(!ctx) return;
-  charts[id]=new Chart(ctx,{type,data,options:{maintainAspectRatio:false,...options}});
+  charts[id]=new Chart(ctx,{type,data,options:{maintainAspectRatio:false,...opts}});
 }
+const gridOpts={scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{labels:{color:'#8b90a8'}}}};
 
-// ══════════════════════════════════════════
-// OVERVIEW
-// ══════════════════════════════════════════
+// ══ 總覽 ══
 function renderOverview(){
-  const data = getFilteredStore('總通路', state.month);
-  const kpi  = getKPI(data);
-  const avg  = Math.round((kpi.open+kpi.close)/2);
-  const ratio= kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
+  const data=getRaw('總通路',state.month);
+  const kpi=getKPI(data);
+  const avg=Math.round((kpi.open+kpi.close)/2);
+  const ratio=kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
+  document.getElementById('ov-sales').textContent=kpi.sales.toLocaleString();
+  document.getElementById('ov-open').textContent=kpi.open.toLocaleString();
+  document.getElementById('ov-close').textContent=kpi.close.toLocaleString();
+  document.getElementById('ov-ratio').textContent=ratio;
 
-  document.getElementById('ov-sales').textContent = kpi.sales.toLocaleString();
-  document.getElementById('ov-open').textContent  = kpi.open.toLocaleString();
-  document.getElementById('ov-close').textContent = kpi.close.toLocaleString();
-  document.getElementById('ov-ratio').textContent = ratio;
+  // 月增減
+  if(state.month!=='全年度'){
+    const mom=getMoM('總通路',state.month);
+    document.getElementById('ov-sales-mom').innerHTML=momHtml(mom);
+    // ratio MoM
+    const pidx=MONTHS.indexOf(state.month)-1;
+    if(pidx>=0){
+      const pd=getRaw('總通路',MONTHS[pidx]);
+      const pk=singleKPI(pd);
+      const pavg=Math.round((pk.open+pk.close)/2);
+      const pr=pk.sales>0?(pavg/pk.sales).toFixed(1):null;
+      if(pr){const diff=parseFloat(ratio)-parseFloat(pr);document.getElementById('ov-ratio-mom').innerHTML=diff>0?`<span class="mom mom-down">▲ ${diff.toFixed(1)}</span>`:`<span class="mom mom-up">▼ ${Math.abs(diff).toFixed(1)}</span>`;}
+    }
+  } else {
+    ['ov-sales-mom','ov-open-mom','ov-close-mom','ov-ratio-mom'].forEach(id=>document.getElementById(id).innerHTML='');
+  }
 
   // TOP10
-  const skuSales={};
-  data.forEach(r=>{ skuSales[r.sku]=(skuSales[r.sku]||0)+(parseInt(r.sales)||0); });
-  const top10 = Object.entries(skuSales).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const maxS  = top10[0]?.[1]||1;
-  document.getElementById('top10List').innerHTML = top10.map(([sku,s],i)=>`
-    <div class="rank-item">
+  const skuS={};
+  data.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const mx=top10[0]?.[1]||1;
+  document.getElementById('top10List').innerHTML=top10.map(([sku,s],i)=>{
+    const cat=skuMeta[sku]?.category||'';
+    return `<div class="rank-item">
       <span class="rank-num">${i+1}</span>
-      <span class="rank-name">${sku}</span>
-      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(s/maxS*100)}%"></div></div>
+      <span class="rank-name" title="${cat}">${sku}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(s/mx*100)}%"></div></div>
       <span class="rank-val">${s}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
-  // 門市排行
-  const storeSales={};
-  STORES.filter(s=>s!=='總通路').forEach(s=>{
-    const d=getFilteredStore(s,state.month);
-    storeSales[s]=d.reduce((a,r)=>a+(parseInt(r.sales)||0),0);
-  });
-  const storeArr=Object.entries(storeSales).sort((a,b)=>b[1]-a[1]);
-  const maxSS=storeArr[0]?.[1]||1;
-  document.getElementById('storeRankList').innerHTML = storeArr.map(([s,v],i)=>`
+  // 門市排行 + MoM
+  const storeArr=STORES.filter(s=>s!=='總通路').map(s=>{
+    const sales=getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+    const mom=state.month!=='全年度'?getMoM(s,state.month):null;
+    return {s,sales,mom};
+  }).sort((a,b)=>b.sales-a.sales);
+  const mxS=storeArr[0]?.sales||1;
+  document.getElementById('storeRankList').innerHTML=storeArr.map(({s,sales,mom},i)=>`
     <div class="rank-item">
       <span class="rank-num">${i+1}</span>
       <span class="rank-name">${s}</span>
-      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(v/maxSS*100)}%;background:var(--accent2)"></div></div>
-      <span class="rank-val" style="color:var(--accent2)">${v}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(sales/mxS*100)}%;background:var(--accent2)"></div></div>
+      <span class="rank-val" style="color:var(--accent2)">${sales}</span>
+      <span class="rank-mom">${momHtml(mom)}</span>
     </div>`).join('');
 
-  // 庫銷比警示
-  const skuClose={};
-  data.forEach(r=>{ skuClose[r.sku]=(skuClose[r.sku]||0)+(parseInt(r.closing_stock)||0); });
-  const alerts=Object.entries(skuSales).map(([sku,s])=>{
-    const c=skuClose[sku]||0;
-    const avg2=c;
-    const r2=s>0?(c/s).toFixed(1):'∞';
-    return {sku,sales:s,close:c,ratio:r2};
+  // 警示
+  const skuC={};
+  data.forEach(r=>{ skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0); });
+  const alerts=Object.entries(skuS).map(([sku,s])=>{
+    const c=skuC[sku]||0;
+    const r=s>0?(c/s).toFixed(1):'∞';
+    return {sku,sales:s,close:c,ratio:r};
   }).filter(x=>x.close>0||x.sales>0)
-    .sort((a,b)=>{
-      const ra=a.ratio==='∞'?999:parseFloat(a.ratio);
-      const rb=b.ratio==='∞'?999:parseFloat(b.ratio);
-      return rb-ra;
-    }).slice(0,15);
-
-  document.getElementById('alertList').innerHTML = alerts.map(x=>{
-    const r=x.ratio==='∞'?999:parseFloat(x.ratio);
-    const cls=r>=5?'dot-red':r>=3?'dot-yellow':'dot-green';
-    const vcls=r>=5?'color:var(--danger)':r>=3?'color:var(--warn)':'color:var(--success)';
+    .sort((a,b)=>(parseFloat(b.ratio)||999)-(parseFloat(a.ratio)||999)).slice(0,15);
+  document.getElementById('alertList').innerHTML=alerts.map(x=>{
+    const rv=x.ratio==='∞'?999:parseFloat(x.ratio);
+    const cls=rv>=5?'dot-red':rv>=3?'dot-yellow':'dot-green';
+    const vcls=rv>=5?'color:var(--danger)':rv>=3?'color:var(--warn)':'color:var(--success)';
+    const restock=x.close<=RESTOCK_THRESHOLD&&x.close>=0?'<span class="restock-badge">補貨</span>':'';
     return `<div class="alert-item">
       <div class="alert-dot ${cls}"></div>
       <span class="alert-sku">${x.sku}</span>
-      <span class="alert-info">銷售 ${x.sales} · 庫存 ${x.close}</span>
+      <span class="alert-info">銷 ${x.sales} · 庫 ${x.close} ${restock}</span>
       <span class="alert-val" style="${vcls}">×${x.ratio}</span>
     </div>`;
   }).join('');
 
-  // 類別圓餅
-  const catSales={};
-  data.forEach(r=>{ catSales[r.category]=(catSales[r.category]||0)+(parseInt(r.sales)||0); });
-  const catArr=Object.entries(catSales).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  makeChart('catPieChart','doughnut',{
-    labels:catArr.map(([k])=>k),
-    datasets:[{data:catArr.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]
-  },{plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
+  // 圓餅
+  const catS={};
+  data.forEach(r=>{ catS[r.category]=(catS[r.category]||0)+(parseInt(r.sales)||0); });
+  const catA=Object.entries(catS).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  makeChart('catPieChart','doughnut',{labels:catA.map(([k])=>k),datasets:[{data:catA.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]},
+    {plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
 }
 
-// ══════════════════════════════════════════
-// SALES
-// ══════════════════════════════════════════
+// ══ 銷售分析 ══
 function renderSales(){
-  const data = getFiltered();
+  const data=getFiltered();
+  const byM=aggByMonth(data);
 
-  // 趨勢圖
-  const byMonth=aggByMonth(getFiltered());
-  const salesArr=MONTHS.map(m=>byMonth[m]?.sales||0);
-  makeChart('saTrendChart','line',{
+  // 趨勢 + 月增減率折線
+  const salesArr=MONTHS.map(m=>byM[m]?.sales||0);
+  const momArr=MONTHS.map((m,i)=>{
+    if(i===0) return null;
+    const cur=salesArr[i],prev=salesArr[i-1];
+    return prev>0?Math.round((cur-prev)/prev*100):null;
+  });
+  makeChart('saTrendChart','bar',{
     labels:MONTHS,
-    datasets:[{label:'銷售量',data:salesArr,borderColor:COLORS[0],backgroundColor:COLORS[0]+'22',fill:true,tension:.35,borderWidth:2.5,pointRadius:4}]
-  },{scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{labels:{color:'#8b90a8'}}}});
+    datasets:[
+      {type:'bar',label:'銷售量',data:salesArr,backgroundColor:COLORS[0]+'88',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'月增減率(%)',data:momArr,borderColor:COLORS[2],backgroundColor:'transparent',borderWidth:2,pointRadius:4,tension:.3,yAxisID:'y2',spanGaps:true}
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},
+      y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left'},
+      y2:{ticks:{color:COLORS[2],callback:v=>v+'%'},grid:{display:false},position:'right'}
+    },
+    plugins:{legend:{labels:{color:'#8b90a8'}}}
+  });
 
   // TOP10
   const skuS={};
@@ -707,88 +725,65 @@ function renderSales(){
     </div>`).join('');
 
   // 門市橫條
-  const storeSArr=STORES.filter(s=>s!=='總通路');
-  const storeSales=storeSArr.map(s=>getFiltered(undefined).filter(r=>r.store===s).reduce((a,r)=>a+(parseInt(r.sales)||0),0));
-  // 重新取各門市
-  const ssData=storeSArr.map(s=>getFilteredStore(s,state.month).reduce((a,r)=>a+(parseInt(r.sales)||0),0));
-  makeChart('saStoreChart','bar',{
-    labels:storeSArr,
-    datasets:[{label:'銷售',data:ssData,backgroundColor:COLORS[1]+'bb',borderRadius:4}]
-  },{indexAxis:'y',scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{display:false}}});
+  const stArr=STORES.filter(s=>s!=='總通路');
+  const ssData=stArr.map(s=>getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.sales)||0),0));
+  makeChart('saStoreChart','bar',{labels:stArr,datasets:[{label:'銷售',data:ssData,backgroundColor:COLORS[1]+'bb',borderRadius:4}]},
+    {indexAxis:'y',...gridOpts,plugins:{legend:{display:false}}});
 
-  // 新款 vs 舊款
-  let newS=0,oldS=0;
-  data.forEach(r=>{
-    const s=parseInt(r.sales)||0;
-    if((r.grade||'').includes('2025新款')||( r.grade||'').includes('新')) newS+=s; else oldS+=s;
-  });
-  makeChart('saNewOldChart','doughnut',{
-    labels:['2025新款','舊款/其他'],
-    datasets:[{data:[newS,oldS],backgroundColor:[COLORS[2],COLORS[3]],borderWidth:0}]
-  },{plugins:{legend:{labels:{color:'#8b90a8'},position:'right'}}});
+  // 新vs舊
+  let nS=0,oS=0;
+  data.forEach(r=>{ const s=parseInt(r.sales)||0; if((r.grade||'').includes('2025新款'))nS+=s; else oS+=s; });
+  makeChart('saNewOldChart','doughnut',{labels:['2025新款','舊款/其他'],datasets:[{data:[nS,oS],backgroundColor:[COLORS[2],COLORS[3]],borderWidth:0}]},
+    {plugins:{legend:{labels:{color:'#8b90a8'},position:'right'}}});
 
   // 類別
   const catS={};
   data.forEach(r=>{ catS[r.category]=(catS[r.category]||0)+(parseInt(r.sales)||0); });
   const catA=Object.entries(catS).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  makeChart('saCatChart','doughnut',{
-    labels:catA.map(([k])=>k),
-    datasets:[{data:catA.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]
-  },{plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
+  makeChart('saCatChart','doughnut',{labels:catA.map(([k])=>k),datasets:[{data:catA.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]},
+    {plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
 }
 
-// ══════════════════════════════════════════
-// STOCK
-// ══════════════════════════════════════════
+// ══ 庫存管理 ══
+let stockTableData=[];
 function renderStock(){
-  const store = state.store==='總通路'?'總通路':state.store;
-  const data  = getFilteredStore(store, state.month);
-
-  // 健康度表
+  const store=state.store==='總通路'?'總通路':state.store;
+  const data=getRaw(store,state.month);
   const skuMap={};
   data.forEach(r=>{
     if(!skuMap[r.sku]) skuMap[r.sku]={sales:0,close:0,cat:r.category,grade:r.grade};
     skuMap[r.sku].sales+=parseInt(r.sales)||0;
     skuMap[r.sku].close+=parseInt(r.closing_stock)||0;
   });
-  const rows=Object.entries(skuMap).sort((a,b)=>{
-    const ra=a[1].sales>0?a[1].close/a[1].sales:999;
-    const rb=b[1].sales>0?b[1].close/b[1].sales:999;
-    return rb-ra;
-  });
+  const rows=Object.entries(skuMap).sort((a,b)=>(b[1].sales>0?b[1].close/b[1].sales:999)-(a[1].sales>0?a[1].close/a[1].sales:999));
+  stockTableData=rows;
 
   const tbody=document.getElementById('stockHealthTable');
   tbody.innerHTML=rows.map(([sku,v])=>{
     const r=v.sales>0?(v.close/v.sales).toFixed(1):'∞';
     const rv=r==='∞'?999:parseFloat(r);
-    const cls=rv>=5?'badge-red':rv>=3?'badge-yellow':'badge-green';
+    const cls=rv>=5?'badge-red':rv>=3?'badge-yellow':v.close===0?'badge-gray':'badge-green';
     const label=rv>=5?'積貨警示':rv>=3?'注意':v.close===0?'缺貨':'健康';
-    return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td>${v.cat}</td><td style="color:var(--accent)">${v.sales}</td><td>${v.close}</td><td>×${r}</td><td><span class="badge ${cls}">${label}</span></td></tr>`;
+    const suggest=rv>=5?'建議促銷/移倉':v.close<=RESTOCK_THRESHOLD&&v.close>0?'⚠️ 建議補貨':v.close===0?'需補貨':'—';
+    const sugCls=suggest.includes('補貨')||suggest.includes('補貨')?'color:var(--danger)':suggest.includes('促銷')?'color:var(--warn)':'color:var(--muted)';
+    return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td>${v.cat}</td><td style="color:var(--accent)">${v.sales}</td><td>${v.close}</td><td>×${r}</td><td><span class="badge ${cls}">${label}</span></td><td style="${sugCls};font-size:.78em">${suggest}</td></tr>`;
   }).join('');
 
   // 滯銷
-  const dead=rows.filter(([,v])=>v.sales===0&&v.close>0).sort((a,b)=>b[1].close-a[1].close).slice(0,10);
-  document.getElementById('deadStockList').innerHTML = dead.length===0
-    ? '<p style="color:var(--muted);font-size:.85em;padding:10px 0">目前無滯銷商品 👍</p>'
-    : dead.map(([sku,v])=>`<div class="rank-item">
-        <div class="alert-dot dot-red"></div>
-        <span class="alert-sku">${sku}</span>
-        <span class="alert-info">${v.cat}</span>
-        <span class="alert-val" style="color:var(--danger)">${v.close} 雙</span>
-      </div>`).join('');
+  const dead=rows.filter(([,v])=>v.sales===0&&v.close>0).sort((a,b)=>b[1].close-a[1].close).slice(0,12);
+  document.getElementById('deadStockList').innerHTML=dead.length===0
+    ?'<p style="color:var(--muted);font-size:.82em;padding:10px 0">目前無滯銷商品 👍</p>'
+    :dead.map(([sku,v])=>`<div class="alert-item"><div class="alert-dot dot-red"></div><span class="alert-sku">${sku}</span><span class="alert-info">${v.cat}</span><span class="alert-val" style="color:var(--danger)">${v.close} 雙</span></div>`).join('');
 
-  // 門市庫存分佈
+  // 門市庫存
   const stArr=STORES.filter(s=>s!=='總通路');
-  const stClose=stArr.map(s=>getFilteredStore(s,state.month).reduce((a,r)=>a+(parseInt(r.closing_stock)||0),0));
-  makeChart('stStoreChart','bar',{
-    labels:stArr,
-    datasets:[{label:'期末庫存',data:stClose,backgroundColor:COLORS[2]+'bb',borderRadius:4}]
-  },{scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{display:false}}});
+  const stC=stArr.map(s=>getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.closing_stock)||0),0));
+  makeChart('stStoreChart','bar',{labels:stArr,datasets:[{label:'期末庫存',data:stC,backgroundColor:COLORS[2]+'bb',borderRadius:4}]},
+    {scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{display:false}}});
 }
 
-// ══════════════════════════════════════════
-// QUERY
-// ══════════════════════════════════════════
+// ══ 查詢 ══
+let queryTableData=[];
 function renderQuery(){
   const data=getFiltered();
   const kpi=getKPI(data);
@@ -798,76 +793,110 @@ function renderQuery(){
   document.getElementById('q-close').textContent=kpi.close.toLocaleString();
   document.getElementById('q-avg').textContent=avg.toLocaleString();
 
-  // 趨勢圖
+  // 月增減
+  if(state.month!=='全年度'){
+    const mom=getMoM(state.store,state.month);
+    document.getElementById('q-sales-mom').innerHTML=momHtml(mom);
+  } else document.getElementById('q-sales-mom').innerHTML='';
+
+  // 趨勢
   const byM=aggByMonth(getFiltered());
-  const sArr=MONTHS.map(m=>byM[m]?.sales||0);
-  const cArr=MONTHS.map(m=>byM[m]?.close||0);
   makeChart('qTrendChart','line',{
     labels:MONTHS,
     datasets:[
-      {label:'銷售量',data:sArr,borderColor:COLORS[0],backgroundColor:COLORS[0]+'22',fill:true,tension:.35,borderWidth:2.5,pointRadius:4,yAxisID:'y'},
-      {label:'期末庫存',data:cArr,borderColor:COLORS[2],backgroundColor:'transparent',fill:false,tension:.35,borderWidth:2,borderDash:[6,3],pointRadius:3,yAxisID:'y'}
+      {label:'銷售量',data:MONTHS.map(m=>byM[m]?.sales||0),borderColor:COLORS[0],backgroundColor:COLORS[0]+'22',fill:true,tension:.35,borderWidth:2.5,pointRadius:4,yAxisID:'y'},
+      {label:'期末庫存',data:MONTHS.map(m=>byM[m]?.close||0),borderColor:COLORS[2],backgroundColor:'transparent',fill:false,tension:.35,borderWidth:2,borderDash:[6,3],pointRadius:3,yAxisID:'y'}
     ]
-  },{scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{labels:{color:'#8b90a8'}}}});
+  },{...gridOpts});
 
-  // 明細表
+  // 明細
   const skuMap={};
   data.forEach(r=>{
     if(!skuMap[r.sku]) skuMap[r.sku]={sales:0,open:0,close:0,cat:r.category,grade:r.grade};
-    if(state.month==='全年度'){
-      skuMap[r.sku].sales+=parseInt(r.sales)||0;
-    } else {
-      skuMap[r.sku].sales+=parseInt(r.sales)||0;
-      skuMap[r.sku].open +=parseInt(r.opening_stock)||0;
-      skuMap[r.sku].close+=parseInt(r.closing_stock)||0;
-    }
+    skuMap[r.sku].sales+=parseInt(r.sales)||0;
+    skuMap[r.sku].open+=parseInt(r.opening_stock)||0;
+    skuMap[r.sku].close+=parseInt(r.closing_stock)||0;
   });
   if(state.month==='全年度'){
     Object.keys(skuMap).forEach(sku=>{
-      const d=data.filter(r=>r.sku===sku);
-      const k=yearKPI(d);
-      skuMap[sku].open=k.open; skuMap[sku].close=k.close;
+      const k=yearKPI(data.filter(r=>r.sku===sku));
+      skuMap[sku].open=k.open;skuMap[sku].close=k.close;
     });
   }
   const rows=Object.entries(skuMap).sort((a,b)=>b[1].sales-a[1].sales);
+  queryTableData=rows;
+
+  // 月增減（逐 SKU）
+  const prevMonth=state.month!=='全年度'&&MONTHS.indexOf(state.month)>0?MONTHS[MONTHS.indexOf(state.month)-1]:null;
+  const prevSkuS={};
+  if(prevMonth){
+    getFiltered(undefined,prevMonth).forEach(r=>{ prevSkuS[r.sku]=(prevSkuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  }
+
   const tbody=document.getElementById('qDetailTable');
   tbody.innerHTML=rows.map(([sku,v])=>{
     const avg2=Math.round((v.open+v.close)/2);
     const r=v.sales>0?(avg2/v.sales).toFixed(1):'—';
     const rv=r==='—'?0:parseFloat(r);
     const cls=rv>5?'badge-red':rv>3?'badge-yellow':'badge-green';
-    return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td>${v.cat}</td><td style="font-size:.78em;color:var(--muted)">${v.grade}</td><td style="color:var(--accent)">${v.sales}</td><td>${v.open}</td><td>${v.close}</td><td>${avg2}</td><td><span class="badge ${cls}">×${r}</span></td></tr>`;
+    let momTd='—';
+    if(prevMonth&&prevSkuS[sku]!==undefined){
+      const prev=prevSkuS[sku]||0;
+      if(prev>0){const pct=Math.round((v.sales-prev)/prev*100);momTd=pct>0?`<span style="color:var(--success)">▲${pct}%</span>`:pct<0?`<span style="color:var(--danger)">▼${Math.abs(pct)}%</span>`:'持平';}
+      else momTd='新增';
+    }
+    return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td style="font-size:.78em">${v.cat}</td><td style="font-size:.72em;color:var(--muted)">${v.grade}</td><td style="color:var(--accent)">${v.sales}</td><td>${momTd}</td><td>${v.open}</td><td>${v.close}</td><td>${avg2}</td><td><span class="badge ${cls}">×${r}</span></td></tr>`;
   }).join('');
 }
 
-// ══════════════════════════════════════════
-// AI
-// ══════════════════════════════════════════
+// ══ Excel 匯出 ══
+function exportStockExcel(){
+  const wsData=[['型號','類別','銷售','期末庫存','庫銷比','狀態','建議']];
+  stockTableData.forEach(([sku,v])=>{
+    const r=v.sales>0?(v.close/v.sales).toFixed(1):'∞';
+    const rv=r==='∞'?999:parseFloat(r);
+    const label=rv>=5?'積貨警示':rv>=3?'注意':v.close===0?'缺貨':'健康';
+    const suggest=rv>=5?'建議促銷/移倉':v.close<=RESTOCK_THRESHOLD&&v.close>0?'建議補貨':v.close===0?'需補貨':'—';
+    wsData.push([sku,v.cat,v.sales,v.close,`×${r}`,label,suggest]);
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb,ws,'庫存健康度');
+  XLSX.writeFile(wb,`庫存報表_${state.year}年${state.month}_${state.store}.xlsx`);
+}
+function exportQueryExcel(){
+  const wsData=[['型號','類別','級別','銷售','期初庫存','期末庫存','平均庫存','庫銷比']];
+  queryTableData.forEach(([sku,v])=>{
+    const avg2=Math.round((v.open+v.close)/2);
+    const r=v.sales>0?(avg2/v.sales).toFixed(1):'—';
+    wsData.push([sku,v.cat,v.grade,v.sales,v.open,v.close,avg2,`×${r}`]);
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb,ws,'查詢明細');
+  XLSX.writeFile(wb,`查詢報表_${state.year}年${state.month}_${state.store}.xlsx`);
+}
+
+// ══ AI 報告 ══
 async function generateAI(){
-  const btn=document.getElementById('aiBtn');
-  const out=document.getElementById('aiOut');
-  btn.disabled=true; btn.textContent='⏳ 分析中...';
-  out.innerHTML='<span style="color:var(--muted)">AI 正在分析，請稍候…</span>';
-
-  const data=getFilteredStore('總通路',state.month);
-  if(!data.length){ out.innerHTML='<span style="color:var(--danger)">無資料可分析</span>'; btn.disabled=false; btn.textContent='✨ 產生報告'; return; }
-
-  const skuS={},storeS={},catS={};
+  const btn=document.getElementById('aiBtn'),out=document.getElementById('aiOut');
+  btn.disabled=true;btn.textContent='⏳ 分析中...';
+  out.innerHTML='<span style="color:var(--muted)">AI 正在分析，請稍候（約 10-20 秒）…</span>';
+  const data=getRaw('總通路',state.month);
+  if(!data.length){out.innerHTML='<span style="color:var(--danger)">無資料可分析</span>';btn.disabled=false;btn.textContent='✨ 產生報告';return;}
+  const skuS={},storeS={},catS={},skuC={};
   data.forEach(r=>{
     skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0);
     storeS[r.store]=(storeS[r.store]||0)+(parseInt(r.sales)||0);
     catS[r.category]=(catS[r.category]||0)+(parseInt(r.sales)||0);
+    skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0);
   });
-  const skuC={};
-  data.forEach(r=>{ skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0); });
-
   const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const storeRank=Object.entries(storeS).filter(([s])=>s!=='總通路').sort((a,b)=>b[1]-a[1]);
-  const highRatio=Object.entries(skuS).map(([sku,s])=>{
-    const c=skuC[sku]||0; const r=s>0?(c/s).toFixed(1):'∞'; return {sku,sales:s,close:c,ratio:r};
-  }).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
+  const highR=Object.entries(skuS).map(([sku,s])=>{const c=skuC[sku]||0;const r=s>0?(c/s).toFixed(1):'∞';return{sku,sales:s,close:c,ratio:r};}).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
+  const lowStock=Object.entries(skuC).filter(([,c])=>c>0&&c<=RESTOCK_THRESHOLD).map(([sku,c])=>({sku,close:c})).slice(0,5);
 
-  const prompt=`你是專業零售業分析師，請用繁體中文寫一份簡潔分析報告（約350字）。
+  const prompt=`你是專業零售業分析師，請用繁體中文寫一份簡潔分析報告（約400字）。
 
 【篩選條件】年度：${state.year}年 · 月份：${state.month}
 
@@ -880,50 +909,53 @@ ${storeRank.map((s,i)=>`${i+1}. ${s[0]}：${s[1]}雙`).join('\n')}
 【各類別銷售】
 ${Object.entries(catS).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}：${v}雙`).join('、')}
 
-【庫銷比過高商品（>5倍）】
-${highRatio.length?highRatio.map(x=>`${x.sku}：庫存${x.close}雙，銷售${x.sales}雙，比值×${x.ratio}`).join('\n'):'無'}
+【庫銷比過高（>5倍）】
+${highR.length?highR.map(x=>`${x.sku}：庫存${x.close}雙，銷售${x.sales}雙，×${x.ratio}`).join('\n'):'無'}
+
+【補貨建議（庫存≤${RESTOCK_THRESHOLD}雙）】
+${lowStock.length?lowStock.map(x=>`${x.sku}：剩${x.close}雙`).join('、'):'無'}
 
 請分析：
 1. 整體銷售重點摘要
-2. 最暢銷商品特徵分析
+2. 最暢銷商品特徵
 3. 業績落後門市原因與建議
-4. 庫存積貨風險提醒與處置建議
-5. 下個月行動建議
+4. 積貨風險與處置建議
+5. 補貨優先順序
+6. 下個月行動建議
 
 用條列式，語氣專業易懂。`;
 
   try{
     const res=await fetch("https://api.anthropic.com/v1/messages",{
-      method:"POST",headers:{"Content-Type":"application/json","x-api-key":"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","anthropic-version":"2023-06-01","anthropic-dangerous-allow-browser":"true"},
-      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-allow-browser":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:prompt}]})
     });
     const d=await res.json();
-    const text=d.content?.[0]?.text||'分析失敗';
+    const text=d.content?.[0]?.text||'分析失敗，請稍後再試。';
     out.innerHTML=text.replace(/\n\n/g,'</p><p style="margin-top:10px">').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--text)">$1</strong>').replace(/^/,'<p>').replace(/$/,'</p>');
   }catch(e){
-    out.innerHTML=`<span style="color:var(--danger)">分析失敗：${e.message}</span>`;
+    out.innerHTML=`<span style="color:var(--danger)">分析失敗：${e.message}（請先儲值 API Credits）</span>`;
   }
-  btn.disabled=false; btn.textContent='✨ 重新分析';
+  btn.disabled=false;btn.textContent='✨ 重新分析';
 }
 
 function refreshAll(){
   renderOverview();
-  renderSales();
-  renderStock();
-  renderQuery();
+  if(document.getElementById('page-sales').classList.contains('active')) renderSales();
+  if(document.getElementById('page-stock').classList.contains('active')) renderStock();
+  if(document.getElementById('page-query').classList.contains('active')) renderQuery();
 }
 
-
-function checkPw(){
-  const val = document.getElementById('pwInput').value;
-  if(val === '10344362'){
-    document.getElementById('login-screen').style.display='none';
-    loadAllData();
-  } else {
-    document.getElementById('pwErr').textContent='密碼錯誤，請再試一次';
-    document.getElementById('pwInput').value='';
-    document.getElementById('pwInput').focus();
-  }
+// 切換頁面時才渲染
+function switchPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='sales') renderSales();
+  if(name==='stock') renderStock();
+  if(name==='query') renderQuery();
 }
 
 window.onload=function(){ document.getElementById('pwInput').focus(); };
