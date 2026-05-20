@@ -293,8 +293,29 @@
         <button class="tab" onclick="toggleMulti('category','3M防水鞋系列',this)">3M防水鞋</button>
     </div>
 
-    <span class="section-label">🏷️ 指定型號（複選對比，全型號顯示加總）</span>
-    <div class="capsule-wrap sku-wrap" id="skuTabsContainer"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+        <span class="section-label" style="margin-bottom:0">🏷️ 指定型號</span>
+        <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:200px;">
+            <input id="skuSearch" type="text" placeholder="🔍 輸入型號關鍵字篩選..." 
+                oninput="filterSkus(this.value)"
+                style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+                       padding:7px 12px;border-radius:8px;font-size:13px;outline:none;"/>
+            <button onclick="toggleSkuPanel()" id="skuToggleBtn"
+                style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);
+                       padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">
+                展開選擇 ▼
+            </button>
+            <button onclick="clearSkuSelection()"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                       padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;">
+                清除
+            </button>
+        </div>
+    </div>
+    <div id="selectedSkuTags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;min-height:0;"></div>
+    <div id="skuPanel" style="display:none;">
+        <div class="capsule-wrap sku-wrap" id="skuTabsContainer"></div>
+    </div>
 </div>
 
 <!-- ── KPI boxes ── -->
@@ -451,6 +472,7 @@ function toggleMulti(type, val, el) {
         state.filters.sku = [];
     }
     renderSkus();
+    updateSelectedTags();
     updateDashboard();
 }
 
@@ -608,8 +630,172 @@ function updateDashboard() {
         `📈 ${state.store} · ${state.year}年 ${state.month} — 銷售與庫存趨勢`;
 }
 
+// ── 型號面板控制 ──
+let skuPanelOpen = false;
+
+function toggleSkuPanel() {
+    skuPanelOpen = !skuPanelOpen;
+    document.getElementById('skuPanel').style.display = skuPanelOpen ? 'block' : 'none';
+    document.getElementById('skuToggleBtn').textContent = skuPanelOpen ? '收起 ▲' : '展開選擇 ▼';
+}
+
+function filterSkus(keyword) {
+    // 若有關鍵字，自動展開面板
+    if (keyword.length > 0 && !skuPanelOpen) {
+        skuPanelOpen = true;
+        document.getElementById('skuPanel').style.display = 'block';
+        document.getElementById('skuToggleBtn').textContent = '收起 ▲';
+    }
+    const btns = document.querySelectorAll('#skuTabsContainer .tab');
+    btns.forEach(btn => {
+        if (btn.textContent === '全型號') { btn.style.display = ''; return; }
+        btn.style.display = btn.textContent.includes(keyword) ? '' : 'none';
+    });
+}
+
+function clearSkuSelection() {
+    state.filters.sku = [];
+    document.getElementById('skuSearch').value = '';
+    renderSkus();
+    updateSelectedTags();
+    updateDashboard();
+}
+
+function updateSelectedTags() {
+    const container = document.getElementById('selectedSkuTags');
+    if (state.filters.sku.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    container.innerHTML = state.filters.sku.map(s =>
+        `<span style="background:var(--accent);color:white;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+            ${s}
+            <span onclick="removeSkuTag('${s}')" style="cursor:pointer;opacity:0.8;font-size:14px;">×</span>
+        </span>`
+    ).join('');
+}
+
+function removeSkuTag(sku) {
+    state.filters.sku = state.filters.sku.filter(s => s !== sku);
+    renderSkus();
+    updateSelectedTags();
+    updateDashboard();
+}
+
 // ── 啟動 ──
 window.onload = loadAllData;
 </script>
+
+<!-- ── AI 分析報告 ── -->
+<div class="card" id="aiReportCard">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+        <h2 style="font-size:1em;color:var(--muted);font-weight:700;">🤖 AI 智能分析報告</h2>
+        <button onclick="generateAIReport()" id="aiBtn"
+            style="background:linear-gradient(135deg,#4f8ef7,#a78bfa);border:none;color:white;
+                   padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+            ✨ 產生分析報告
+        </button>
+    </div>
+    <div id="aiReportContent" style="color:var(--muted);font-size:0.9em;line-height:1.8;">
+        點擊「產生分析報告」，AI 將自動分析當前篩選條件下的銷售與庫存狀況。
+    </div>
+</div>
+
+<script>
+async function generateAIReport() {
+    const btn = document.getElementById('aiBtn');
+    const output = document.getElementById('aiReportContent');
+    btn.disabled = true;
+    btn.textContent = '⏳ 分析中...';
+    output.innerHTML = '<span style="color:var(--muted)">AI 正在分析資料，請稍候...</span>';
+
+    // 收集當前顯示資料
+    const filtered = getFiltered();
+    if (filtered.length === 0) {
+        output.innerHTML = '<span style="color:var(--danger)">⚠️ 目前條件下無資料可分析。</span>';
+        btn.disabled = false; btn.textContent = '✨ 產生分析報告';
+        return;
+    }
+
+    // 整理各門市銷售加總
+    const storeMap = {};
+    const skuSalesMap = {};
+    filtered.forEach(r => {
+        if (!storeMap[r.store]) storeMap[r.store] = { sales: 0, close: 0 };
+        storeMap[r.store].sales += parseInt(r.sales) || 0;
+        storeMap[r.store].close += parseInt(r.closing_stock) || 0;
+        if (!skuSalesMap[r.sku]) skuSalesMap[r.sku] = 0;
+        skuSalesMap[r.sku] += parseInt(r.sales) || 0;
+    });
+
+    // 排行
+    const topStores = Object.entries(storeMap).sort((a,b) => b[1].sales - a[1].sales).slice(0,5);
+    const topSkus   = Object.entries(skuSalesMap).sort((a,b) => b[1] - a[1]).slice(0,10);
+    const lowStores = Object.entries(storeMap).filter(s => s[0] !== '總通路').sort((a,b) => a[1].sales - b[1].sales).slice(0,3);
+    const highStock = Object.entries(storeMap).filter(s => s[0] !== '總通路').sort((a,b) => b[1].close - a[1].close).slice(0,3);
+
+    const prompt = `你是一位專業的零售業銷售分析師。請根據以下鞋子銷售與庫存數據，用繁體中文寫一份簡潔的分析報告（約300字）。
+
+【篩選條件】
+- 年度：${state.year}年
+- 月份：${state.month}
+- 門市：${state.store}
+
+【門市銷售排行（前5名）】
+${topStores.map((s,i) => `${i+1}. ${s[0]}：${s[1].sales} 雙`).join('
+')}
+
+【銷售最低門市（前3名）】
+${lowStores.map((s,i) => `${i+1}. ${s[0]}：${s[1].sales} 雙`).join('
+')}
+
+【熱銷型號（前10名）】
+${topSkus.map((s,i) => `${i+1}. ${s[0]}：${s[1]} 雙`).join('
+')}
+
+【庫存最高門市（前3名）】
+${highStock.map((s,i) => `${i+1}. ${s[0]}：${s[1].close} 雙`).join('
+')}
+
+請分析：
+1. 整體銷售表現重點摘要
+2. 最暢銷商品分析
+3. 業績落後門市的可能原因與建議
+4. 庫存風險提醒
+5. 具體行動建議
+
+請用條列式，語氣專業但易懂。`;
+
+    try {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 1000,
+                messages: [{ role: "user", content: prompt }]
+            })
+        });
+        const data = await response.json();
+        const text = data.content?.[0]?.text || "分析失敗，請稍後再試。";
+        // 轉換換行為 HTML
+        output.innerHTML = text
+            .replace(/
+
+/g, '</p><p style="margin-top:12px">')
+            .replace(/
+/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--text)">$1</strong>')
+            .replace(/^/, '<p>')
+            .replace(/$/, '</p>');
+    } catch(e) {
+        output.innerHTML = `<span style="color:var(--danger)">⚠️ AI 分析失敗：${e.message}</span>`;
+    }
+
+    btn.disabled = false;
+    btn.textContent = '✨ 重新分析';
+}
+</script>
+
 </body>
 </html>
