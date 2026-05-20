@@ -288,6 +288,14 @@ tbody tr:hover{background:var(--surface2);}
     <div class="kpi-box kpi-s"><h3>庫銷比</h3><div class="val" id="st-ratio">—</div><div class="unit">倍（&lt;3 健康）</div></div>
   </div>
   <div class="ov-grid">
+    <div class="card">
+      <div class="card-title">📉 滯銷商品（零銷售有庫存）</div>
+      <div id="deadStockList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 各門市庫存分佈</div>
+      <div class="chart-wrap-sm"><canvas id="stStoreChart"></canvas></div>
+    </div>
     <div class="card" style="grid-column:1/-1;">
       <div class="card-title">🚦 庫存健康度總表
         <button class="export-btn" onclick="exportStockExcel()">📥 匯出 Excel</button>
@@ -298,14 +306,6 @@ tbody tr:hover{background:var(--surface2);}
           <tbody id="stockHealthTable"></tbody>
         </table>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-title">📉 滯銷商品（零銷售有庫存）</div>
-      <div id="deadStockList"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">📊 各門市庫存分佈</div>
-      <div class="chart-wrap-sm"><canvas id="stStoreChart"></canvas></div>
     </div>
   </div>
 </div>
