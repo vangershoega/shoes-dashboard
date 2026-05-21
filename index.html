@@ -446,10 +446,10 @@ function syncYears(sourceId){
 
 // ── 建立篩選器 ──
 function buildFilters(){
-  const GRADE_ORDER=['2025新款', 'A+ 商品 (前30%)', 'A  商品 (30-60%)', 'A- 商品 (60~80%)', 'B+ 商品 (80-85%)', 'B  商品 (85-90%)', 'B- 商品 (後10%)', '2025淘汰款', '歷年累計特賣款', '2024淘汰款', '打樣鞋', '未分級'];
+  window.GRADE_ORDER=['2025新款', 'A+ 商品 (前30%)', 'A  商品 (30-60%)', 'A- 商品 (60~80%)', 'B+ 商品 (80-85%)', 'B  商品 (85-90%)', 'B- 商品 (後10%)', '2025淘汰款', '歷年累計特賣款', '2024淘汰款', '打樣鞋', '未分級'];
   const gradeSet=[...new Set(rawData.map(r=>r.grade).filter(Boolean))];
   const grades=[...GRADE_ORDER.filter(g=>gradeSet.includes(g)),...gradeSet.filter(g=>!GRADE_ORDER.includes(g)).sort()];
-  const CAT_ORDER=['流行休閒鞋', '增高系列', '速穿系列', '3M防水鞋系列', '素面皮鞋', '雕花皮鞋', '樂福、豆豆鞋', '孟克鞋', '半正式皮鞋', '靴子', '特賣會商品', '打樣鞋', '票券', '未分類'];
+  window.CAT_ORDER=['流行休閒鞋', '增高系列', '速穿系列', '3M防水鞋系列', '素面皮鞋', '雕花皮鞋', '樂福、豆豆鞋', '孟克鞋', '半正式皮鞋', '靴子', '特賣會商品', '打樣鞋', '票券', '未分類'];
   const catSet=[...new Set(rawData.map(r=>r.category).filter(Boolean))];
   const cats=[...CAT_ORDER.filter(c=>catSet.includes(c)),...catSet.filter(c=>!CAT_ORDER.includes(c)).sort()];
 
@@ -507,9 +507,26 @@ function setStore(s,el,gid){
 }
 function toggleF(type,val,el,gid){
   const arr=state.filters[type];
-  const cont=document.getElementById(gid);
-  if(val.includes('全')){arr.length=0;cont.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
-  else{cont.firstElementChild.classList.remove('active');const i=arr.indexOf(val);if(i>-1)arr.splice(i,1);else arr.push(val);el.classList.toggle('active');if(arr.length===0)cont.firstElementChild.classList.add('active');}
+  // 同步所有相同 type 的 tab 容器（saCatTabs 和 qCatTabs 共用同一個 state）
+  const allGroupIds = type==='category'?['saCatTabs','qCatTabs']:type==='grade'?['qGradeTabs']:[];
+  const containers = allGroupIds.length>0 ? allGroupIds.map(id=>document.getElementById(id)).filter(Boolean) : [document.getElementById(gid)];
+
+  if(val.includes('全')){
+    arr.length=0;
+    containers.forEach(cont=>{ cont.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active')); cont.firstElementChild?.classList.add('active'); });
+  } else {
+    // 先把所有容器的「全」按鈕取消
+    containers.forEach(cont=>{ cont.firstElementChild?.classList.remove('active'); });
+    const i=arr.indexOf(val);
+    if(i>-1) arr.splice(i,1); else arr.push(val);
+    // 同步所有容器的按鈕狀態
+    containers.forEach(cont=>{
+      cont.querySelectorAll('.ftab').forEach(b=>{
+        if(b.textContent.includes('全')) b.classList.toggle('active', arr.length===0);
+        else b.classList.toggle('active', arr.includes(b.textContent));
+      });
+    });
+  }
   if(type==='category'){state.filters.sku=[];renderSkuTabs();}
   refreshAll();
 }
@@ -819,7 +836,7 @@ function renderStock(){
     ?'<p style="color:var(--muted);font-size:.82em;padding:10px 0">目前無滯銷商品 👍</p>'
     :dead.map(([sku,v])=>`<div class="alert-item"><div class="alert-dot dot-red"></div><span class="alert-sku">${sku}</span><span class="alert-info">${v.cat}</span><span class="alert-val" style="color:var(--danger)">${v.close} 雙</span></div>`).join('');
 
-  // 各類別庫銷比
+  // 各類別庫銷比（依自訂排序）
   const catMap={};
   data.forEach(r=>{
     const cat=r.category||'未分類';
@@ -827,7 +844,10 @@ function renderStock(){
     catMap[cat].sales+=parseInt(r.sales)||0;
     catMap[cat].close+=parseInt(r.closing_stock)||0;
   });
-  const catEntries=Object.entries(catMap).filter(([,v])=>v.sales>0||v.close>0).sort((a,b)=>b[1].close-a[1].close);
+  const catEntries=[
+    ...CAT_ORDER.filter(c=>catMap[c]&&(catMap[c].sales>0||catMap[c].close>0)).map(c=>[c,catMap[c]]),
+    ...Object.entries(catMap).filter(([c,v])=>!CAT_ORDER.includes(c)&&(v.sales>0||v.close>0))
+  ];
   const catLabels=catEntries.map(([k])=>k);
   const catSales=catEntries.map(([,v])=>v.sales);
   const catClose=catEntries.map(([,v])=>v.close);
@@ -860,10 +880,11 @@ function renderStock(){
     gradeMap[g].sales+=parseInt(r.sales)||0;
     gradeMap[g].close+=parseInt(r.closing_stock)||0;
   });
-  const GRADE_ORDER=['2025新款','A+ 商品 (前30%)','A  商品 (30-60%)','A- 商品 (60~80%)','B+ 商品 (80-85%)','B 商品 (85-90%)','B- 商品 (後10%)','2025淘汰款','歷年累計特賣款','2024淘汰款','未分級'];
-  const gradeEntries=GRADE_ORDER.filter(g=>gradeMap[g]).map(g=>[g,gradeMap[g]]);
-  // 加上 GRADE_ORDER 沒有但資料有的
-  Object.entries(gradeMap).forEach(([g,v])=>{ if(!GRADE_ORDER.includes(g)) gradeEntries.push([g,v]); });
+  window.GRADE_ORDER=['2025新款','A+ 商品 (前30%)','A  商品 (30-60%)','A- 商品 (60~80%)','B+ 商品 (80-85%)','B 商品 (85-90%)','B- 商品 (後10%)','2025淘汰款','歷年累計特賣款','2024淘汰款','未分級'];
+  const gradeEntries=[
+    ...GRADE_ORDER.filter(g=>gradeMap[g]).map(g=>[g,gradeMap[g]]),
+    ...Object.entries(gradeMap).filter(([g])=>!GRADE_ORDER.includes(g))
+  ];
   const gradeLabels=gradeEntries.map(([k])=>k.replace(' 商品 ','').replace('(','('));
   const gradeSales=gradeEntries.map(([,v])=>v.sales);
   const gradeClose=gradeEntries.map(([,v])=>v.close);
@@ -923,6 +944,9 @@ function renderQuery(){
       {label:'期末庫存',data:MONTHS.map(m=>byM[m]?.close||0),borderColor:COLORS[2],backgroundColor:'transparent',fill:false,tension:.35,borderWidth:2,borderDash:[6,3],pointRadius:3,yAxisID:'y'}
     ]
   },{...gridOpts});
+
+  // Debug：確認篩選狀態
+  console.log('store:', state.store, 'month:', state.month, 'category:', state.filters.category, 'data筆數:', data.length);
 
   // 明細
   const skuMap={};
