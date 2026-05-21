@@ -693,7 +693,9 @@ function renderOverview(){
 // ══ 銷售分析 ══
 function renderSales(){
   const data=getFiltered();
-  const byM=aggByMonth(data);
+  // 趨勢圖永遠用全年度資料（不受月份篩選影響）
+  const dataAllMonth=getFiltered(undefined,'全年度');
+  const byM=aggByMonth(dataAllMonth);
 
   // 趨勢 + 月增減率折線
   const salesArr=MONTHS.map(m=>byM[m]?.sales||0);
