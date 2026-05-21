@@ -880,7 +880,8 @@ function renderStock(){
     gradeMap[g].sales+=parseInt(r.sales)||0;
     gradeMap[g].close+=parseInt(r.closing_stock)||0;
   });
-  window.GRADE_ORDER=['2025新款','A+ 商品 (前30%)','A  商品 (30-60%)','A- 商品 (60~80%)','B+ 商品 (80-85%)','B 商品 (85-90%)','B- 商品 (後10%)','2025淘汰款','歷年累計特賣款','2024淘汰款','未分級'];
+  window.GRADE_ORDER=['2025新款','A+ 商品 (前30%)','A  商品 (30-60%)','A- 商品 (60~80%)','B+ 商品 (80-85%)','B  商品 (85-90%)','B- 商品 (後10%)','2025淘汰款','歷年累計特賣款','2024淘汰款','未分級'];
+  // 圖表顯示全部級別（依 GRADE_ORDER 排序）
   const gradeEntries=[
     ...GRADE_ORDER.filter(g=>gradeMap[g]).map(g=>[g,gradeMap[g]]),
     ...Object.entries(gradeMap).filter(([g])=>!GRADE_ORDER.includes(g))
