@@ -303,6 +303,12 @@ tbody tr:hover{background:var(--surface2);}
       <div class="chart-wrap"><canvas id="stCatRatioChart"></canvas></div>
     </div>
     <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">⭐ 銷售級別庫銷比分析
+        <span style="font-size:.78em;color:var(--muted);font-weight:400;">銷售量 vs 期末庫存 vs 庫銷比</span>
+      </div>
+      <div class="chart-wrap"><canvas id="stGradeRatioChart"></canvas></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
       <div class="card-title">🚦 庫存健康度總表
         <button class="export-btn" onclick="exportStockExcel()">📥 匯出 Excel</button>
       </div>
@@ -827,11 +833,49 @@ function renderStock(){
     datasets:[
       {type:'bar',label:'銷售量',data:catSales,backgroundColor:'rgba(79,142,247,0.6)',borderRadius:3,yAxisID:'y'},
       {type:'bar',label:'期末庫存',data:catClose,backgroundColor:'rgba(247,151,79,0.6)',borderRadius:3,yAxisID:'y'},
-      {type:'line',label:'庫銷比',data:catRatio,borderColor:'#f74f4f',backgroundColor:'transparent',borderWidth:2.5,pointRadius:5,pointBackgroundColor:catColors,tension:.3,yAxisID:'y2'}
+      {type:'line',label:'庫銷比',data:catRatio,borderColor:'rgba(255,255,255,0.3)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:10,pointHoverRadius:13,pointBackgroundColor:catColors,pointBorderColor:'rgba(0,0,0,0.3)',pointBorderWidth:1,tension:.3,yAxisID:'y2'}
     ]
   },{
     scales:{
       x:{ticks:{color:'#8b90a8',maxRotation:30},grid:{color:'#2e3150'}},
+      y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left',title:{display:true,text:'數量（雙）',color:'#8b90a8'}},
+      y2:{ticks:{color:'#f74f4f',callback:v=>'×'+v},grid:{display:false},position:'right',title:{display:true,text:'庫銷比',color:'#f74f4f'}}
+    },
+    plugins:{
+      legend:{labels:{color:'#8b90a8'}},
+      tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.datasetIndex===2?'×'+ctx.raw:ctx.raw+'雙')}}
+    }
+  });
+
+  // 銷售級別庫銷比
+  const gradeMap={};
+  data.forEach(r=>{
+    const g=r.grade||'未分級';
+    if(!gradeMap[g]) gradeMap[g]={sales:0,close:0};
+    gradeMap[g].sales+=parseInt(r.sales)||0;
+    gradeMap[g].close+=parseInt(r.closing_stock)||0;
+  });
+  const GRADE_ORDER=['2025新款','A+ 商品 (前30%)','A  商品 (30-60%)','A- 商品 (60~80%)','B+ 商品 (80-85%)','B 商品 (85-90%)','B- 商品 (後10%)','2025淘汰款','歷年累計特賣款','2024淘汰款','未分級'];
+  const gradeEntries=GRADE_ORDER.filter(g=>gradeMap[g]).map(g=>[g,gradeMap[g]]);
+  // 加上 GRADE_ORDER 沒有但資料有的
+  Object.entries(gradeMap).forEach(([g,v])=>{ if(!GRADE_ORDER.includes(g)) gradeEntries.push([g,v]); });
+  const gradeLabels=gradeEntries.map(([k])=>k.replace(' 商品 ','').replace('(','('));
+  const gradeSales=gradeEntries.map(([,v])=>v.sales);
+  const gradeClose=gradeEntries.map(([,v])=>v.close);
+  const gradeRatio=gradeEntries.map(([,v])=>v.sales>0?parseFloat((v.close/v.sales).toFixed(1)):0);
+  const gradeColors=gradeRatio.map(r=>r>=5?'rgba(247,79,79,0.85)':r>=3?'rgba(247,212,79,0.85)':'rgba(79,235,184,0.85)');
+  makeChart('stGradeRatioChart','bar',{
+    labels:gradeLabels,
+    datasets:[
+      {type:'bar',label:'銷售量',data:gradeSales,backgroundColor:'rgba(79,142,247,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'bar',label:'期末庫存',data:gradeClose,backgroundColor:'rgba(247,151,79,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'庫銷比',data:gradeRatio,borderColor:'rgba(255,255,255,0.3)',backgroundColor:'transparent',
+       borderWidth:1.5,pointRadius:10,pointHoverRadius:13,pointBackgroundColor:gradeColors,
+       pointBorderColor:'rgba(0,0,0,0.3)',pointBorderWidth:1,tension:.3,yAxisID:'y2'}
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#8b90a8',maxRotation:25},grid:{color:'#2e3150'}},
       y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left',title:{display:true,text:'數量（雙）',color:'#8b90a8'}},
       y2:{ticks:{color:'#f74f4f',callback:v=>'×'+v},grid:{display:false},position:'right',title:{display:true,text:'庫銷比',color:'#f74f4f'}}
     },
