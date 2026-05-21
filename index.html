@@ -297,6 +297,12 @@ tbody tr:hover{background:var(--surface2);}
       <div class="chart-wrap-sm"><canvas id="stStoreChart"></canvas></div>
     </div>
     <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">📦 各類別庫銷比分析
+        <span style="font-size:.78em;color:var(--muted);font-weight:400;">銷售量 vs 期末庫存 vs 庫銷比</span>
+      </div>
+      <div class="chart-wrap"><canvas id="stCatRatioChart"></canvas></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
       <div class="card-title">🚦 庫存健康度總表
         <button class="export-btn" onclick="exportStockExcel()">📥 匯出 Excel</button>
       </div>
@@ -801,6 +807,39 @@ function renderStock(){
   document.getElementById('deadStockList').innerHTML=dead.length===0
     ?'<p style="color:var(--muted);font-size:.82em;padding:10px 0">目前無滯銷商品 👍</p>'
     :dead.map(([sku,v])=>`<div class="alert-item"><div class="alert-dot dot-red"></div><span class="alert-sku">${sku}</span><span class="alert-info">${v.cat}</span><span class="alert-val" style="color:var(--danger)">${v.close} 雙</span></div>`).join('');
+
+  // 各類別庫銷比
+  const catMap={};
+  data.forEach(r=>{
+    const cat=r.category||'未分類';
+    if(!catMap[cat]) catMap[cat]={sales:0,close:0};
+    catMap[cat].sales+=parseInt(r.sales)||0;
+    catMap[cat].close+=parseInt(r.closing_stock)||0;
+  });
+  const catEntries=Object.entries(catMap).filter(([,v])=>v.sales>0||v.close>0).sort((a,b)=>b[1].close-a[1].close);
+  const catLabels=catEntries.map(([k])=>k);
+  const catSales=catEntries.map(([,v])=>v.sales);
+  const catClose=catEntries.map(([,v])=>v.close);
+  const catRatio=catEntries.map(([,v])=>v.sales>0?parseFloat((v.close/v.sales).toFixed(1)):0);
+  const catColors=catRatio.map(r=>r>=5?'rgba(247,79,79,0.7)':r>=3?'rgba(247,212,79,0.7)':'rgba(79,235,184,0.7)');
+  makeChart('stCatRatioChart','bar',{
+    labels:catLabels,
+    datasets:[
+      {type:'bar',label:'銷售量',data:catSales,backgroundColor:'rgba(79,142,247,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'bar',label:'期末庫存',data:catClose,backgroundColor:'rgba(247,151,79,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'庫銷比',data:catRatio,borderColor:'#f74f4f',backgroundColor:'transparent',borderWidth:2.5,pointRadius:5,pointBackgroundColor:catColors,tension:.3,yAxisID:'y2'}
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#8b90a8',maxRotation:30},grid:{color:'#2e3150'}},
+      y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left',title:{display:true,text:'數量（雙）',color:'#8b90a8'}},
+      y2:{ticks:{color:'#f74f4f',callback:v=>'×'+v},grid:{display:false},position:'right',title:{display:true,text:'庫銷比',color:'#f74f4f'}}
+    },
+    plugins:{
+      legend:{labels:{color:'#8b90a8'}},
+      tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.datasetIndex===2?'×'+ctx.raw:ctx.raw+'雙')}}
+    }
+  });
 
   // 門市庫存
   const stArr=STORES.filter(s=>s!=='總通路');
