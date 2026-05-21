@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>商控戰情室</title>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0f1117;--surface:#1a1d2e;--surface2:#252840;
+  --accent:#4f8ef7;--accent2:#f7974f;--accent3:#4febb8;
+  --danger:#f74f4f;--warn:#f7d44f;--success:#4febb8;
+  --text:#e8eaf0;--muted:#8b90a8;--border:#2e3150;--radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Microsoft JhengHei','微軟正黑體',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── Login ── */
+#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 36px;width:340px;text-align:center;}
+.login-logo{font-size:2.5em;margin-bottom:12px;}
+.login-box h2{font-size:1.2em;font-weight:800;margin-bottom:6px;}
+.login-box h2 span{color:var(--accent);}
+.login-box p{font-size:.82em;color:var(--muted);margin-bottom:24px;}
+.login-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:12px 16px;border-radius:8px;font-size:16px;outline:none;text-align:center;letter-spacing:.15em;margin-bottom:12px;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;background:var(--accent);border:none;color:#fff;padding:12px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;}
+.login-err{color:var(--danger);font-size:.82em;margin-top:8px;min-height:18px;}
+
+/* ── Loading ── */
+#loading-overlay{position:fixed;inset:0;background:rgba(15,17,23,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:998;gap:16px;}
+.spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading-overlay p{color:var(--muted);font-size:.9em;}
+
+/* ── Nav ── */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;display:flex;align-items:center;position:sticky;top:0;z-index:100;overflow-x:auto;}
+.nav::-webkit-scrollbar{height:0;}
+.nav-brand{font-size:1em;font-weight:800;padding:14px 16px 14px 0;border-right:1px solid var(--border);margin-right:4px;white-space:nowrap;flex-shrink:0;}
+.nav-brand span{color:var(--accent);}
+.nav-tab{border:none;background:transparent;color:var(--muted);padding:14px 14px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;transition:all .15s;}
+.nav-tab:hover{color:var(--text);}
+.nav-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;padding-left:12px;}
+.update-time{font-size:.72em;color:var(--muted);white-space:nowrap;}
+
+/* ── Page ── */
+.page{display:none;padding:16px;}
+.page.active{display:block;}
+
+/* ── Cards ── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.card-title{font-size:.8em;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+
+/* ── KPI ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;position:relative;overflow:hidden;}
+.kpi-box::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.kpi-s::before{background:var(--accent);}
+.kpi-o::before{background:var(--accent2);}
+.kpi-c::before{background:var(--danger);}
+.kpi-a::before{background:var(--accent3);}
+.kpi-box h3{font-size:.7em;color:var(--muted);font-weight:600;letter-spacing:.04em;margin-bottom:6px;}
+.kpi-box .val{font-size:1.7em;font-weight:800;line-height:1;}
+.kpi-box .unit{font-size:.7em;color:var(--muted);margin-top:3px;}
+.kpi-box .mom{font-size:.72em;font-weight:700;margin-top:4px;}
+.mom-up{color:var(--success);}
+.mom-down{color:var(--danger);}
+.mom-flat{color:var(--muted);}
+.kpi-s .val{color:var(--accent);}
+.kpi-o .val{color:var(--accent2);}
+.kpi-c .val{color:var(--danger);}
+.kpi-a .val{color:var(--accent3);}
+
+/* ── Store tabs ── */
+.store-tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+.stab{border:1px solid var(--border);background:transparent;color:var(--muted);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.stab:hover{color:var(--text);}
+.stab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* ── Filter ── */
+.filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center;}
+.filter-label{font-size:.72em;color:var(--muted);font-weight:700;letter-spacing:.05em;white-space:nowrap;min-width:30px;}
+.ftab{border:none;background:var(--surface2);color:var(--muted);padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+.ftab:hover{color:var(--text);}
+.ftab.active{background:var(--accent);color:#fff;}
+
+/* ── Charts ── */
+.chart-wrap{position:relative;height:260px;width:100%;}
+.chart-wrap-sm{position:relative;height:200px;width:100%;}
+
+/* ── Grid ── */
+.ov-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:700px){.ov-grid{grid-template-columns:1fr;}}
+
+/* ── Rank list ── */
+.rank-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
+.rank-item:last-child{border-bottom:none;}
+.rank-num{font-size:.72em;font-weight:800;color:var(--muted);width:18px;text-align:center;flex-shrink:0;}
+.rank-bar-wrap{flex:1;background:var(--surface2);border-radius:4px;height:5px;overflow:hidden;}
+.rank-bar{height:5px;border-radius:4px;background:var(--accent);}
+.rank-name{font-size:.8em;color:var(--text);width:100px;font-weight:600;flex-shrink:0;}
+.rank-val{font-size:.8em;font-weight:700;color:var(--accent);min-width:45px;text-align:right;flex-shrink:0;}
+.rank-mom{font-size:.7em;font-weight:700;min-width:40px;text-align:right;flex-shrink:0;}
+
+/* ── Alert ── */
+.alert-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);}
+.alert-item:last-child{border-bottom:none;}
+.alert-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.dot-red{background:var(--danger);}
+.dot-yellow{background:var(--warn);}
+.dot-green{background:var(--success);}
+.alert-sku{font-size:.82em;font-weight:700;color:var(--text);min-width:90px;}
+.alert-info{font-size:.74em;color:var(--muted);flex:1;}
+.alert-val{font-size:.82em;font-weight:700;flex-shrink:0;}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;font-size:.82em;}
+thead th{background:var(--surface2);color:var(--muted);font-size:.7em;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap;}
+tbody td{padding:9px 10px;border-bottom:1px solid var(--border);text-align:center;font-weight:500;}
+tbody tr:hover{background:var(--surface2);}
+.badge{padding:2px 8px;border-radius:20px;font-size:.76em;font-weight:700;white-space:nowrap;}
+.badge-red{background:rgba(247,79,79,.18);color:var(--danger);}
+.badge-yellow{background:rgba(247,212,79,.18);color:var(--warn);}
+.badge-green{background:rgba(79,235,184,.18);color:var(--success);}
+.badge-blue{background:rgba(79,142,247,.18);color:var(--accent);}
+.badge-gray{background:rgba(139,144,168,.18);color:var(--muted);}
+
+/* ── SKU search ── */
+.sku-search-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.sku-search-input{flex:1;min-width:140px;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px;outline:none;}
+.sku-search-input:focus{border-color:var(--accent);}
+.sku-panel{max-height:120px;overflow-y:auto;margin-top:4px;}
+.sku-panel::-webkit-scrollbar{width:4px;}
+.sku-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+.selected-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;}
+.stag{background:var(--accent);color:#fff;padding:2px 8px;border-radius:14px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px;}
+.stag-x{cursor:pointer;opacity:.8;}
+
+/* ── Export btn ── */
+.export-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;}
+.export-btn:hover{color:var(--text);border-color:var(--accent);}
+
+/* ── AI ── */
+.ai-btn{background:linear-gradient(135deg,#4f8ef7,#a78bfa);border:none;color:#fff;padding:9px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+.ai-btn:disabled{opacity:.5;cursor:default;}
+#aiOut{color:var(--muted);font-size:.88em;line-height:1.9;margin-top:14px;}
+
+/* ── Year select ── */
+.year-sel{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;}
+
+/* ── Restock badge ── */
+.restock-badge{background:rgba(247,79,79,.15);border:1px solid rgba(247,79,79,.4);color:var(--danger);padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:700;}
+
+/* ── Mobile tweaks ── */
+@media(max-width:480px){
+  .nav-brand{font-size:.9em;padding:12px 10px 12px 0;}
+  .nav-tab{font-size:12px;padding:12px 10px;}
+  .page{padding:10px;}
+  .card{padding:14px;}
+  .kpi-box .val{font-size:1.5em;}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">📊</div>
+    <h2>商控 <span>戰情室</span></h2>
+    <p>請輸入密碼以進入系統</p>
+    <input class="login-input" id="pwInput" type="password" placeholder="••••••••"
+      onkeydown="if(event.key==='Enter')checkPw()">
+    <button class="login-btn" onclick="checkPw()">進入系統</button>
+    <div class="login-err" id="pwErr"></div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading-overlay" style="display:none;">
+  <div class="spinner"></div>
+  <p>正在從 Firebase 載入資料…</p>
+</div>
+
+<!-- Nav -->
+<nav class="nav">
+  <div class="nav-brand">📊 商控 <span>戰情室</span></div>
+  <button class="nav-tab active" onclick="switchPage('overview',this)">總覽</button>
+  <button class="nav-tab" onclick="switchPage('sales',this)">銷售分析</button>
+  <button class="nav-tab" onclick="switchPage('stock',this)">庫存管理</button>
+  <button class="nav-tab" onclick="switchPage('query',this)">查詢</button>
+  <button class="nav-tab" onclick="switchPage('ai',this)">AI 報告</button>
+  <div class="nav-right">
+    <span class="update-time" id="updateTime">—</span>
+  </div>
+</nav>
+
+<!-- ═══ 總覽 ═══ -->
+<div id="page-overview" class="page active">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+    <select class="year-sel" id="ovYear" onchange="state.year=this.value;syncYears('ovYear');refreshAll();">
+      <option value="113">113 年</option><option value="114">114 年</option>
+      <option value="115" selected>115 年</option><option value="116">116 年</option>
+    </select>
+    <div id="ovMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-box kpi-s"><h3>全通路銷售</h3><div class="val" id="ov-sales">—</div><div class="unit">雙</div><div class="mom" id="ov-sales-mom"></div></div>
+    <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="ov-open">—</div><div class="unit">雙</div><div class="mom" id="ov-open-mom"></div></div>
+    <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="ov-close">—</div><div class="unit">雙</div><div class="mom" id="ov-close-mom"></div></div>
+    <div class="kpi-box kpi-a"><h3>整體庫銷比</h3><div class="val" id="ov-ratio">—</div><div class="unit">倍（&lt;3 健康）</div><div class="mom" id="ov-ratio-mom"></div></div>
+  </div>
+  <div class="ov-grid">
+    <div class="card">
+      <div class="card-title">🔥 熱銷型號 TOP 10</div>
+      <div id="top10List"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏪 門市業績排行
+        <span style="font-size:.8em;color:var(--muted);font-weight:400;">月增減率</span>
+      </div>
+      <div id="storeRankList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🚨 庫銷比警示</div>
+      <div id="alertList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📦 類別銷售佔比</div>
+      <div class="chart-wrap-sm"><canvas id="catPieChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 銷售分析 ═══ -->
+<div id="page-sales" class="page">
+  <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <select class="year-sel" id="saYear" onchange="state.year=this.value;syncYears('saYear');refreshAll();"></select>
+      <div class="store-tabs" id="saStoreTabs" style="margin:0;"></div>
+    </div>
+    <div class="filter-row"><span class="filter-label">月份</span><div id="saMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div class="filter-row"><span class="filter-label">類別</span><div id="saCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+  </div>
+  <div class="ov-grid">
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">📈 月銷售趨勢（含月增減率）</div>
+      <div class="chart-wrap"><canvas id="saTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏆 熱銷 TOP 10</div>
+      <div id="saTop10"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🏪 門市業績比較</div>
+      <div class="chart-wrap-sm"><canvas id="saStoreChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 新款 vs 舊款</div>
+      <div class="chart-wrap-sm"><canvas id="saNewOldChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📦 各類別銷售佔比</div>
+      <div class="chart-wrap-sm"><canvas id="saCatChart"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 庫存管理 ═══ -->
+<div id="page-stock" class="page">
+  <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <select class="year-sel" id="stYear" onchange="state.year=this.value;syncYears('stYear');refreshAll();"></select>
+      <div class="store-tabs" id="stStoreTabs" style="margin:0;"></div>
+    </div>
+    <div class="filter-row"><span class="filter-label">月份</span><div id="stMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="st-open">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="st-close">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-a"><h3>平均庫存</h3><div class="val" id="st-avg">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-s"><h3>庫銷比</h3><div class="val" id="st-ratio">—</div><div class="unit">倍（&lt;3 健康）</div></div>
+  </div>
+  <div class="ov-grid">
+    <div class="card">
+      <div class="card-title">📉 滯銷商品（零銷售有庫存）</div>
+      <div id="deadStockList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 各門市庫存分佈</div>
+      <div class="chart-wrap-sm"><canvas id="stStoreChart"></canvas></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">📦 各類別庫銷比分析
+        <span style="font-size:.78em;color:var(--muted);font-weight:400;">銷售量 vs 期末庫存 vs 庫銷比</span>
+      </div>
+      <div class="chart-wrap"><canvas id="stCatRatioChart"></canvas></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">⭐ 銷售級別庫銷比分析
+        <span style="font-size:.78em;color:var(--muted);font-weight:400;">銷售量 vs 期末庫存 vs 庫銷比</span>
+      </div>
+      <div class="chart-wrap"><canvas id="stGradeRatioChart"></canvas></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">🚦 庫存健康度總表
+        <button class="export-btn" onclick="exportStockExcel()">📥 匯出 Excel</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>型號</th><th>類別</th><th>銷售</th><th>期末庫存</th><th>庫銷比</th><th>狀態</th><th>建議</th></tr></thead>
+          <tbody id="stockHealthTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 查詢 ═══ -->
+<div id="page-query" class="page">
+  <div class="card">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+      <select class="year-sel" id="qYear" onchange="state.year=this.value;syncYears('qYear');refreshAll();"></select>
+      <div class="store-tabs" id="qStoreTabs" style="margin:0;"></div>
+    </div>
+    <div class="filter-row"><span class="filter-label">月份</span><div id="qMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div class="filter-row"><span class="filter-label">級別</span><div id="qGradeTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div class="filter-row"><span class="filter-label">類別</span><div id="qCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    <div style="margin-top:8px;">
+      <div class="sku-search-row">
+        <span class="filter-label">型號</span>
+        <input class="sku-search-input" id="skuSearch" placeholder="輸入關鍵字篩選..." oninput="filterSkuTabs(this.value)">
+        <button class="ftab" onclick="clearSkus()">清除</button>
+        <button class="ftab" onclick="toggleSkuPanel()" id="skuToggleBtn">展開 ▼</button>
+      </div>
+      <div id="selectedTags" class="selected-tags"></div>
+      <div id="skuPanel" style="display:none;" class="sku-panel">
+        <div style="display:flex;flex-wrap:wrap;gap:4px;" id="skuTabsContainer"></div>
+      </div>
+    </div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi-box kpi-s"><h3>銷售總量</h3><div class="val" id="q-sales">—</div><div class="unit">雙</div><div class="mom" id="q-sales-mom"></div></div>
+    <div class="kpi-box kpi-o"><h3>期初庫存</h3><div class="val" id="q-open">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="q-close">—</div><div class="unit">雙</div></div>
+    <div class="kpi-box kpi-a"><h3>平均庫存</h3><div class="val" id="q-avg">—</div><div class="unit">雙</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📈 趨勢圖</div>
+    <div class="chart-wrap"><canvas id="qTrendChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📋 型號明細
+      <button class="export-btn" onclick="exportQueryExcel()">📥 匯出 Excel</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>型號</th><th>類別</th><th>級別</th><th>銷售</th><th>月增減</th><th>期初</th><th>期末</th><th>平均</th><th>庫銷比</th></tr></thead>
+        <tbody id="qDetailTable"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI 報告 ═══ -->
+<div id="page-ai" class="page">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div class="card-title" style="margin-bottom:4px;">🤖 AI 智能分析報告</div>
+        <p style="font-size:.8em;color:var(--muted);">根據總覽條件，自動產生銷售與庫存完整分析。</p>
+      </div>
+      <button class="ai-btn" onclick="generateAI()" id="aiBtn">✨ 產生報告</button>
+    </div>
+    <div id="aiOut" style="color:var(--muted);font-size:.88em;line-height:1.9;margin-top:16px;">
+      點擊「產生報告」，AI 將分析最暢銷商品、業績異常門市、庫存風險並提供行動建議。
+    </div>
+  </div>
+</div>
+
+<script>
+const API_KEY = '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';
+const RESTOCK_THRESHOLD = 10; // 低於此庫存顯示補貨建議
+
+firebase.initializeApp({
+  apiKey:"AIzaSyAimgD7BUG3AiLis9IVgmXawUWQ_kSIpt8",
+  authDomain:"shoes-dashboard-69b31.firebaseapp.com",
+  projectId:"shoes-dashboard-69b31",
+  storageBucket:"shoes-dashboard-69b31.firebasestorage.app",
+  messagingSenderId:"1066943168381",
+  appId:"1:1066943168381:web:dff73609a66aa9b1ba1614"
+});
+const db = firebase.firestore();
+
+const MONTHS=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+const STORES=['總通路','官網','A13','南西','台中','南紡','東區','MO店+','特賣'];
+const COLORS=['#4f8ef7','#f7974f','#4febb8','#f74f4f','#a78bfa','#fbbf24','#34d399','#f472b6','#60a5fa','#fb923c'];
+const YEAR_OPTS = ['113','114','115','116'];
+
+let rawData=[], skuMeta={}, charts={};
+let state={year:'115',store:'總通路',month:'五月',filters:{grade:[],category:[],sku:[]}};
+let skuPanelOpen=false;
+
+// ── 密碼 ──
+function checkPw(){
+  if(document.getElementById('pwInput').value==='10344362'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('loading-overlay').style.display='flex';
+    loadAllData();
+  } else {
+    document.getElementById('pwErr').textContent='密碼錯誤，請再試一次';
+    document.getElementById('pwInput').value='';
+  }
+}
+
+// ── Firebase ──
+async function loadAllData(){
+  try{
+    const snap=await db.collection('shoes_data').get();
+    rawData=snap.docs.map(d=>d.data());
+    rawData.forEach(r=>{ if(!skuMeta[r.sku]) skuMeta[r.sku]={category:r.category||'未分類',grade:r.grade||'未分級'}; });
+    document.getElementById('loading-overlay').style.display='none';
+    // 更新時間
+    document.getElementById('updateTime').textContent='資料更新：'+new Date().toLocaleDateString('zh-TW');
+    buildFilters();
+    refreshAll();
+  }catch(e){
+    document.getElementById('loading-overlay').style.display='none';
+    alert('Firebase 連線失敗：'+e.message);
+  }
+}
+
+// ── 同步所有年份選單 ──
+function syncYears(sourceId){
+  ['ovYear','saYear','stYear','qYear'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&id!==sourceId) el.value=state.year;
+  });
+}
+
+// ── 建立篩選器 ──
+function buildFilters(){
+  const grades=[...new Set(rawData.map(r=>r.grade).filter(Boolean))].sort();
+  const cats=[...new Set(rawData.map(r=>r.category).filter(Boolean))].sort();
+
+  // 年份
+  ['ovYear','saYear','stYear','qYear'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.innerHTML=YEAR_OPTS.map(y=>`<option value="${y}"${y==='115'?' selected':''}>${y} 年</option>`).join('');
+  });
+
+  // 月份
+  ['ovMonthTabs','saMonthTabs','stMonthTabs','qMonthTabs'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.innerHTML=`<button class="ftab ${state.month==='全年度'?'active':''}" onclick="setMonth('全年度',this,'${id}')">全年度</button>`
+      +MONTHS.map(m=>`<button class="ftab ${state.month===m?'active':''}" onclick="setMonth('${m}',this,'${id}')">${m}</button>`).join('');
+  });
+
+  // 門市
+  ['saStoreTabs','stStoreTabs','qStoreTabs'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.innerHTML=STORES.map(s=>`<button class="stab ${state.store===s?'active':''}" onclick="setStore('${s}',this,'${id}')">${s}</button>`).join('');
+  });
+
+  // 類別
+  ['saCatTabs','qCatTabs'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.innerHTML=`<button class="ftab active" onclick="toggleF('category','全類別',this,'${id}')">全類別</button>`
+      +cats.map(c=>`<button class="ftab" onclick="toggleF('category','${c}',this,'${id}')">${c}</button>`).join('');
+  });
+
+  // 級別
+  const gEl=document.getElementById('qGradeTabs');
+  if(gEl) gEl.innerHTML=`<button class="ftab active" onclick="toggleF('grade','全級別',this,'qGradeTabs')">全級別</button>`
+    +grades.map(g=>`<button class="ftab" onclick="toggleF('grade','${g}',this,'qGradeTabs')">${g}</button>`).join('');
+
+  renderSkuTabs();
+}
+
+function setMonth(m,el,gid){
+  state.month=m;
+  ['ovMonthTabs','saMonthTabs','stMonthTabs','qMonthTabs'].forEach(id=>{
+    document.querySelectorAll(`#${id} .ftab`).forEach(b=>b.classList.toggle('active',b.textContent===m));
+  });
+  refreshAll();
+}
+function setStore(s,el,gid){
+  state.store=s;
+  ['saStoreTabs','stStoreTabs','qStoreTabs'].forEach(id=>{
+    document.querySelectorAll(`#${id} .stab`).forEach(b=>b.classList.toggle('active',b.textContent===s));
+  });
+  refreshAll();
+}
+function toggleF(type,val,el,gid){
+  const arr=state.filters[type];
+  const cont=document.getElementById(gid);
+  if(val.includes('全')){arr.length=0;cont.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+  else{cont.firstElementChild.classList.remove('active');const i=arr.indexOf(val);if(i>-1)arr.splice(i,1);else arr.push(val);el.classList.toggle('active');if(arr.length===0)cont.firstElementChild.classList.add('active');}
+  if(type==='category'){state.filters.sku=[];renderSkuTabs();}
+  refreshAll();
+}
+function renderSkuTabs(){
+  const cont=document.getElementById('skuTabsContainer');
+  if(!cont) return;
+  let skus=Object.keys(skuMeta);
+  if(state.filters.category.length) skus=skus.filter(s=>state.filters.category.includes(skuMeta[s].category));
+  if(state.filters.grade.length) skus=skus.filter(s=>state.filters.grade.includes(skuMeta[s].grade));
+  skus.sort();
+  cont.innerHTML=`<button class="ftab ${state.filters.sku.length===0?'active':''}" onclick="toggleSku('全型號',this)">全型號</button>`
+    +skus.map(s=>`<button class="ftab ${state.filters.sku.includes(s)?'active':''}" onclick="toggleSku('${s}',this)">${s}</button>`).join('');
+}
+function toggleSku(val,el){
+  if(val==='全型號'){state.filters.sku=[];document.querySelectorAll('#skuTabsContainer .ftab').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+  else{document.querySelector('#skuTabsContainer .ftab').classList.remove('active');const i=state.filters.sku.indexOf(val);if(i>-1)state.filters.sku.splice(i,1);else state.filters.sku.push(val);el.classList.toggle('active');if(state.filters.sku.length===0)document.querySelector('#skuTabsContainer .ftab').classList.add('active');}
+  updateTags();refreshAll();
+}
+function filterSkuTabs(kw){
+  if(kw&&!skuPanelOpen){skuPanelOpen=true;document.getElementById('skuPanel').style.display='block';document.getElementById('skuToggleBtn').textContent='收起 ▲';}
+  document.querySelectorAll('#skuTabsContainer .ftab').forEach(b=>{
+    if(b.textContent==='全型號'){b.style.display='';return;}
+    b.style.display=b.textContent.includes(kw)?'':'none';
+  });
+}
+function toggleSkuPanel(){skuPanelOpen=!skuPanelOpen;document.getElementById('skuPanel').style.display=skuPanelOpen?'block':'none';document.getElementById('skuToggleBtn').textContent=skuPanelOpen?'收起 ▲':'展開 ▼';}
+function clearSkus(){state.filters.sku=[];document.getElementById('skuSearch').value='';renderSkuTabs();updateTags();refreshAll();}
+function removeSku(s){state.filters.sku=state.filters.sku.filter(x=>x!==s);renderSkuTabs();updateTags();refreshAll();}
+function updateTags(){
+  const el=document.getElementById('selectedTags');
+  if(el) el.innerHTML=state.filters.sku.map(s=>`<span class="stag">${s}<span class="stag-x" onclick="removeSku('${s}')">×</span></span>`).join('');
+}
+function switchPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+}
+
+// ── 資料工具 ──
+function getFiltered(overStore,overMonth){
+  const store=overStore||state.store, month=overMonth||state.month;
+  return rawData.filter(r=>{
+    if(r.year!==state.year||r.store!==store) return false;
+    if(month!=='全年度'&&r.month!==month) return false;
+    if(state.filters.grade.length&&!state.filters.grade.includes(r.grade)) return false;
+    if(state.filters.category.length&&!state.filters.category.includes(r.category)) return false;
+    if(state.filters.sku.length&&!state.filters.sku.includes(r.sku)) return false;
+    return true;
+  });
+}
+function getRaw(store,month){
+  return rawData.filter(r=>r.year===state.year&&r.store===store&&(month==='全年度'||r.month===month));
+}
+function aggByMonth(data){
+  const m={};
+  data.forEach(r=>{
+    if(!m[r.month]) m[r.month]={sales:0,open:0,close:0};
+    m[r.month].sales+=parseInt(r.sales)||0;
+    m[r.month].open+=parseInt(r.opening_stock)||0;
+    m[r.month].close+=parseInt(r.closing_stock)||0;
+  });
+  return m;
+}
+function yearKPI(data){
+  const m=aggByMonth(data);
+  let sales=0,open=0,close=0;
+  Object.values(m).forEach(v=>sales+=v.sales);
+  const mO=MONTHS.filter(mo=>m[mo]&&m[mo].open>0);
+  const mC=MONTHS.filter(mo=>m[mo]&&m[mo].close>0);
+  if(mO.length) open=m[mO[0]].open;
+  if(mC.length) close=m[mC[mC.length-1]].close;
+  return {sales,open,close};
+}
+function singleKPI(data){
+  let sales=0,open=0,close=0;
+  data.forEach(r=>{sales+=parseInt(r.sales)||0;open+=parseInt(r.opening_stock)||0;close+=parseInt(r.closing_stock)||0;});
+  return {sales,open,close};
+}
+function getKPI(data){return state.month==='全年度'?yearKPI(data):singleKPI(data);}
+
+// 月增減率
+function getMoM(store, curMonth){
+  const idx=MONTHS.indexOf(curMonth);
+  if(idx<=0) return null;
+  const prevMonth=MONTHS[idx-1];
+  const cur=getRaw(store,curMonth).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+  const prev=getRaw(store,prevMonth).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+  if(prev===0) return null;
+  return Math.round((cur-prev)/prev*100);
+}
+function momHtml(pct){
+  if(pct===null||pct===undefined) return '';
+  if(pct>0) return `<span class="mom mom-up">▲ ${pct}%</span>`;
+  if(pct<0) return `<span class="mom mom-down">▼ ${Math.abs(pct)}%</span>`;
+  return `<span class="mom mom-flat">— 持平</span>`;
+}
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function makeChart(id,type,data,opts){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  charts[id]=new Chart(ctx,{type,data,options:{maintainAspectRatio:false,...opts}});
+}
+const gridOpts={scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{labels:{color:'#8b90a8'}}}};
+
+// ══ 總覽 ══
+function renderOverview(){
+  const data=getRaw('總通路',state.month);
+  const kpi=getKPI(data);
+  const avg=Math.round((kpi.open+kpi.close)/2);
+  const ratio=kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
+  document.getElementById('ov-sales').textContent=kpi.sales.toLocaleString();
+  document.getElementById('ov-open').textContent=kpi.open.toLocaleString();
+  document.getElementById('ov-close').textContent=kpi.close.toLocaleString();
+  document.getElementById('ov-ratio').textContent=ratio;
+
+  // 月增減
+  if(state.month!=='全年度'){
+    const mom=getMoM('總通路',state.month);
+    document.getElementById('ov-sales-mom').innerHTML=momHtml(mom);
+    // ratio MoM
+    const pidx=MONTHS.indexOf(state.month)-1;
+    if(pidx>=0){
+      const pd=getRaw('總通路',MONTHS[pidx]);
+      const pk=singleKPI(pd);
+      const pavg=Math.round((pk.open+pk.close)/2);
+      const pr=pk.sales>0?(pavg/pk.sales).toFixed(1):null;
+      if(pr){const diff=parseFloat(ratio)-parseFloat(pr);document.getElementById('ov-ratio-mom').innerHTML=diff>0?`<span class="mom mom-down">▲ ${diff.toFixed(1)}</span>`:`<span class="mom mom-up">▼ ${Math.abs(diff).toFixed(1)}</span>`;}
+    }
+  } else {
+    ['ov-sales-mom','ov-open-mom','ov-close-mom','ov-ratio-mom'].forEach(id=>document.getElementById(id).innerHTML='');
+  }
+
+  // TOP10
+  const skuS={};
+  data.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const mx=top10[0]?.[1]||1;
+  document.getElementById('top10List').innerHTML=top10.map(([sku,s],i)=>{
+    const cat=skuMeta[sku]?.category||'';
+    return `<div class="rank-item">
+      <span class="rank-num">${i+1}</span>
+      <span class="rank-name" title="${cat}">${sku}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(s/mx*100)}%"></div></div>
+      <span class="rank-val">${s}</span>
+    </div>`;
+  }).join('');
+
+  // 門市排行 + MoM
+  const storeArr=STORES.filter(s=>s!=='總通路').map(s=>{
+    const sales=getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+    const mom=state.month!=='全年度'?getMoM(s,state.month):null;
+    return {s,sales,mom};
+  }).sort((a,b)=>b.sales-a.sales);
+  const mxS=storeArr[0]?.sales||1;
+  document.getElementById('storeRankList').innerHTML=storeArr.map(({s,sales,mom},i)=>`
+    <div class="rank-item">
+      <span class="rank-num">${i+1}</span>
+      <span class="rank-name">${s}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(sales/mxS*100)}%;background:var(--accent2)"></div></div>
+      <span class="rank-val" style="color:var(--accent2)">${sales}</span>
+      <span class="rank-mom">${momHtml(mom)}</span>
+    </div>`).join('');
+
+  // 警示
+  const skuC={};
+  data.forEach(r=>{ skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0); });
+  const alerts=Object.entries(skuS).map(([sku,s])=>{
+    const c=skuC[sku]||0;
+    const r=s>0?(c/s).toFixed(1):'∞';
+    return {sku,sales:s,close:c,ratio:r};
+  }).filter(x=>x.close>0||x.sales>0)
+    .sort((a,b)=>(parseFloat(b.ratio)||999)-(parseFloat(a.ratio)||999)).slice(0,15);
+  document.getElementById('alertList').innerHTML=alerts.map(x=>{
+    const rv=x.ratio==='∞'?999:parseFloat(x.ratio);
+    const cls=rv>=5?'dot-red':rv>=3?'dot-yellow':'dot-green';
+    const vcls=rv>=5?'color:var(--danger)':rv>=3?'color:var(--warn)':'color:var(--success)';
+    const restock=x.close<=RESTOCK_THRESHOLD&&x.close>=0?'<span class="restock-badge">補貨</span>':'';
+    return `<div class="alert-item">
+      <div class="alert-dot ${cls}"></div>
+      <span class="alert-sku">${x.sku}</span>
+      <span class="alert-info">銷 ${x.sales} · 庫 ${x.close} ${restock}</span>
+      <span class="alert-val" style="${vcls}">×${x.ratio}</span>
+    </div>`;
+  }).join('');
+
+  // 圓餅
+  const catS={};
+  data.forEach(r=>{ catS[r.category]=(catS[r.category]||0)+(parseInt(r.sales)||0); });
+  const catA=Object.entries(catS).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  makeChart('catPieChart','doughnut',{labels:catA.map(([k])=>k),datasets:[{data:catA.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]},
+    {plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
+}
+
+// ══ 銷售分析 ══
+function renderSales(){
+  const data=getFiltered();
+  // 趨勢圖永遠用全年度資料（不受月份篩選影響）
+  const dataAllMonth=getFiltered(undefined,'全年度');
+  const byM=aggByMonth(dataAllMonth);
+
+  // 趨勢 + 月增減率折線
+  const salesArr=MONTHS.map(m=>byM[m]?.sales||0);
+  const momArr=MONTHS.map((m,i)=>{
+    if(i===0) return null;
+    const cur=salesArr[i],prev=salesArr[i-1];
+    return prev>0?Math.round((cur-prev)/prev*100):null;
+  });
+  makeChart('saTrendChart','bar',{
+    labels:MONTHS,
+    datasets:[
+      {type:'bar',label:'銷售量',data:salesArr,backgroundColor:COLORS[0]+'88',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'月增減率(%)',data:momArr,borderColor:COLORS[2],backgroundColor:'transparent',borderWidth:2,pointRadius:4,tension:.3,yAxisID:'y2',spanGaps:true}
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},
+      y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left'},
+      y2:{ticks:{color:COLORS[2],callback:v=>v+'%'},grid:{display:false},position:'right'}
+    },
+    plugins:{legend:{labels:{color:'#8b90a8'}}}
+  });
+
+  // TOP10
+  const skuS={};
+  data.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  const top=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const mx=top[0]?.[1]||1;
+  document.getElementById('saTop10').innerHTML=top.map(([sku,s],i)=>`
+    <div class="rank-item">
+      <span class="rank-num">${i+1}</span>
+      <span class="rank-name">${sku}</span>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${Math.round(s/mx*100)}%"></div></div>
+      <span class="rank-val">${s}</span>
+    </div>`).join('');
+
+  // 門市橫條（跟著篩選條件連動）
+  const stArr=STORES.filter(s=>s!=='總通路');
+  const ssData=stArr.map(s=>{
+    return rawData.filter(r=>{
+      if(r.year!==state.year||r.store!==s) return false;
+      if(state.month!=='全年度'&&r.month!==state.month) return false;
+      if(state.filters.grade.length&&!state.filters.grade.includes(r.grade)) return false;
+      if(state.filters.category.length&&!state.filters.category.includes(r.category)) return false;
+      if(state.filters.sku.length&&!state.filters.sku.includes(r.sku)) return false;
+      return true;
+    }).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+  });
+  makeChart('saStoreChart','bar',{labels:stArr,datasets:[{label:'銷售',data:ssData,backgroundColor:COLORS[1]+'bb',borderRadius:4}]},
+    {indexAxis:'y',...gridOpts,plugins:{legend:{display:false}}});
+
+  // 新vs舊
+  let nS=0,oS=0;
+  data.forEach(r=>{ const s=parseInt(r.sales)||0; if((r.grade||'').includes('2025新款'))nS+=s; else oS+=s; });
+  makeChart('saNewOldChart','doughnut',{labels:['2025新款','舊款/其他'],datasets:[{data:[nS,oS],backgroundColor:[COLORS[2],COLORS[3]],borderWidth:0}]},
+    {plugins:{legend:{labels:{color:'#8b90a8'},position:'right'}}});
+
+  // 類別
+  const catS={};
+  data.forEach(r=>{ catS[r.category]=(catS[r.category]||0)+(parseInt(r.sales)||0); });
+  const catA=Object.entries(catS).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  makeChart('saCatChart','doughnut',{labels:catA.map(([k])=>k),datasets:[{data:catA.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]},
+    {plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
+}
+
+// ══ 庫存管理 ══
+let stockTableData=[];
+function renderStock(){
+  const store=state.store==='總通路'?'總通路':state.store;
+  const data=getRaw(store,state.month);
+
+  // KPI
+  const kpi = state.month==='全年度' ? yearKPI(data) : singleKPI(data);
+  const avg = Math.round((kpi.open+kpi.close)/2);
+  const ratio = kpi.sales>0 ? (avg/kpi.sales).toFixed(1) : '—';
+  document.getElementById('st-open').textContent  = kpi.open.toLocaleString();
+  document.getElementById('st-close').textContent = kpi.close.toLocaleString();
+  document.getElementById('st-avg').textContent   = avg.toLocaleString();
+  document.getElementById('st-ratio').textContent = ratio;
+
+  const skuMap={};
+  data.forEach(r=>{
+    if(!skuMap[r.sku]) skuMap[r.sku]={sales:0,close:0,cat:r.category,grade:r.grade};
+    skuMap[r.sku].sales+=parseInt(r.sales)||0;
+    skuMap[r.sku].close+=parseInt(r.closing_stock)||0;
+  });
+  const rows=Object.entries(skuMap).sort((a,b)=>(b[1].sales>0?b[1].close/b[1].sales:999)-(a[1].sales>0?a[1].close/a[1].sales:999));
+  stockTableData=rows;
+
+  const tbody=document.getElementById('stockHealthTable');
+  tbody.innerHTML=rows.map(([sku,v])=>{
+    const r=v.sales>0?(v.close/v.sales).toFixed(1):'∞';
+    const rv=r==='∞'?999:parseFloat(r);
+    const cls=rv>=5?'badge-red':rv>=3?'badge-yellow':v.close===0?'badge-gray':'badge-green';
+    const label=rv>=5?'積貨警示':rv>=3?'注意':v.close===0?'缺貨':'健康';
+    const suggest=rv>=5?'建議促銷/移倉':v.close<=RESTOCK_THRESHOLD&&v.close>0?'⚠️ 建議補貨':v.close===0?'需補貨':'—';
+    const sugCls=suggest.includes('補貨')||suggest.includes('補貨')?'color:var(--danger)':suggest.includes('促銷')?'color:var(--warn)':'color:var(--muted)';
+    return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td>${v.cat}</td><td style="color:var(--accent)">${v.sales}</td><td>${v.close}</td><td>×${r}</td><td><span class="badge ${cls}">${label}</span></td><td style="${sugCls};font-size:.78em">${suggest}</td></tr>`;
+  }).join('');
+
+  // 滯銷
+  const dead=rows.filter(([,v])=>v.sales===0&&v.close>0).sort((a,b)=>b[1].close-a[1].close).slice(0,12);
+  document.getElementById('deadStockList').innerHTML=dead.length===0
+    ?'<p style="color:var(--muted);font-size:.82em;padding:10px 0">目前無滯銷商品 👍</p>'
+    :dead.map(([sku,v])=>`<div class="alert-item"><div class="alert-dot dot-red"></div><span class="alert-sku">${sku}</span><span class="alert-info">${v.cat}</span><span class="alert-val" style="color:var(--danger)">${v.close} 雙</span></div>`).join('');
+
+  // 各類別庫銷比
+  const catMap={};
+  data.forEach(r=>{
+    const cat=r.category||'未分類';
+    if(!catMap[cat]) catMap[cat]={sales:0,close:0};
+    catMap[cat].sales+=parseInt(r.sales)||0;
+    catMap[cat].close+=parseInt(r.closing_stock)||0;
+  });
+  const catEntries=Object.entries(catMap).filter(([,v])=>v.sales>0||v.close>0).sort((a,b)=>b[1].close-a[1].close);
+  const catLabels=catEntries.map(([k])=>k);
+  const catSales=catEntries.map(([,v])=>v.sales);
+  const catClose=catEntries.map(([,v])=>v.close);
+  const catRatio=catEntries.map(([,v])=>v.sales>0?parseFloat((v.close/v.sales).toFixed(1)):0);
+  const catColors=catRatio.map(r=>r>=5?'rgba(247,79,79,0.7)':r>=3?'rgba(247,212,79,0.7)':'rgba(79,235,184,0.7)');
+  makeChart('stCatRatioChart','bar',{
+    labels:catLabels,
+    datasets:[
+      {type:'bar',label:'銷售量',data:catSales,backgroundColor:'rgba(79,142,247,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'bar',label:'期末庫存',data:catClose,backgroundColor:'rgba(247,151,79,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'庫銷比',data:catRatio,borderColor:'rgba(255,255,255,0.3)',backgroundColor:'transparent',borderWidth:1.5,pointRadius:10,pointHoverRadius:13,pointBackgroundColor:catColors,pointBorderColor:'rgba(0,0,0,0.3)',pointBorderWidth:1,tension:.3,yAxisID:'y2'}
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#8b90a8',maxRotation:30},grid:{color:'#2e3150'}},
+      y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left',title:{display:true,text:'數量（雙）',color:'#8b90a8'}},
+      y2:{ticks:{color:'#f74f4f',callback:v=>'×'+v},grid:{display:false},position:'right',title:{display:true,text:'庫銷比',color:'#f74f4f'}}
+    },
+    plugins:{
+      legend:{labels:{color:'#8b90a8'}},
+      tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.datasetIndex===2?'×'+ctx.raw:ctx.raw+'雙')}}
+    }
+  });
+
+  // 銷售級別庫銷比
+  const gradeMap={};
+  data.forEach(r=>{
+    const g=r.grade||'未分級';
+    if(!gradeMap[g]) gradeMap[g]={sales:0,close:0};
+    gradeMap[g].sales+=parseInt(r.sales)||0;
+    gradeMap[g].close+=parseInt(r.closing_stock)||0;
+  });
+  const GRADE_ORDER=['2025新款','A+ 商品 (前30%)','A  商品 (30-60%)','A- 商品 (60~80%)','B+ 商品 (80-85%)','B 商品 (85-90%)','B- 商品 (後10%)','2025淘汰款','歷年累計特賣款','2024淘汰款','未分級'];
+  const gradeEntries=GRADE_ORDER.filter(g=>gradeMap[g]).map(g=>[g,gradeMap[g]]);
+  // 加上 GRADE_ORDER 沒有但資料有的
+  Object.entries(gradeMap).forEach(([g,v])=>{ if(!GRADE_ORDER.includes(g)) gradeEntries.push([g,v]); });
+  const gradeLabels=gradeEntries.map(([k])=>k.replace(' 商品 ','').replace('(','('));
+  const gradeSales=gradeEntries.map(([,v])=>v.sales);
+  const gradeClose=gradeEntries.map(([,v])=>v.close);
+  const gradeRatio=gradeEntries.map(([,v])=>v.sales>0?parseFloat((v.close/v.sales).toFixed(1)):0);
+  const gradeColors=gradeRatio.map(r=>r>=5?'rgba(247,79,79,0.85)':r>=3?'rgba(247,212,79,0.85)':'rgba(79,235,184,0.85)');
+  makeChart('stGradeRatioChart','bar',{
+    labels:gradeLabels,
+    datasets:[
+      {type:'bar',label:'銷售量',data:gradeSales,backgroundColor:'rgba(79,142,247,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'bar',label:'期末庫存',data:gradeClose,backgroundColor:'rgba(247,151,79,0.6)',borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'庫銷比',data:gradeRatio,borderColor:'rgba(255,255,255,0.3)',backgroundColor:'transparent',
+       borderWidth:1.5,pointRadius:10,pointHoverRadius:13,pointBackgroundColor:gradeColors,
+       pointBorderColor:'rgba(0,0,0,0.3)',pointBorderWidth:1,tension:.3,yAxisID:'y2'}
+    ]
+  },{
+    scales:{
+      x:{ticks:{color:'#8b90a8',maxRotation:25},grid:{color:'#2e3150'}},
+      y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'},position:'left',title:{display:true,text:'數量（雙）',color:'#8b90a8'}},
+      y2:{ticks:{color:'#f74f4f',callback:v=>'×'+v},grid:{display:false},position:'right',title:{display:true,text:'庫銷比',color:'#f74f4f'}}
+    },
+    plugins:{
+      legend:{labels:{color:'#8b90a8'}},
+      tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.datasetIndex===2?'×'+ctx.raw:ctx.raw+'雙')}}
+    }
+  });
+
+  // 門市庫存
+  const stArr=STORES.filter(s=>s!=='總通路');
+  const stC=stArr.map(s=>getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.closing_stock)||0),0));
+  makeChart('stStoreChart','bar',{labels:stArr,datasets:[{label:'期末庫存',data:stC,backgroundColor:COLORS[2]+'bb',borderRadius:4}]},
+    {scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{display:false}}});
+}
+
+// ══ 查詢 ══
+let queryTableData=[];
+function renderQuery(){
+  const data=getFiltered();
+  const kpi=getKPI(data);
+  const avg=Math.round((kpi.open+kpi.close)/2);
+  document.getElementById('q-sales').textContent=kpi.sales.toLocaleString();
+  document.getElementById('q-open').textContent=kpi.open.toLocaleString();
+  document.getElementById('q-close').textContent=kpi.close.toLocaleString();
+  document.getElementById('q-avg').textContent=avg.toLocaleString();
+
+  // 月增減
+  if(state.month!=='全年度'){
+    const mom=getMoM(state.store,state.month);
+    document.getElementById('q-sales-mom').innerHTML=momHtml(mom);
+  } else document.getElementById('q-sales-mom').innerHTML='';
+
+  // 趨勢
+  const byM=aggByMonth(getFiltered());
+  makeChart('qTrendChart','line',{
+    labels:MONTHS,
+    datasets:[
+      {label:'銷售量',data:MONTHS.map(m=>byM[m]?.sales||0),borderColor:COLORS[0],backgroundColor:COLORS[0]+'22',fill:true,tension:.35,borderWidth:2.5,pointRadius:4,yAxisID:'y'},
+      {label:'期末庫存',data:MONTHS.map(m=>byM[m]?.close||0),borderColor:COLORS[2],backgroundColor:'transparent',fill:false,tension:.35,borderWidth:2,borderDash:[6,3],pointRadius:3,yAxisID:'y'}
+    ]
+  },{...gridOpts});
+
+  // 明細
+  const skuMap={};
+  data.forEach(r=>{
+    if(!skuMap[r.sku]) skuMap[r.sku]={sales:0,open:0,close:0,cat:r.category,grade:r.grade};
+    skuMap[r.sku].sales+=parseInt(r.sales)||0;
+    skuMap[r.sku].open+=parseInt(r.opening_stock)||0;
+    skuMap[r.sku].close+=parseInt(r.closing_stock)||0;
+  });
+  if(state.month==='全年度'){
+    Object.keys(skuMap).forEach(sku=>{
+      const k=yearKPI(data.filter(r=>r.sku===sku));
+      skuMap[sku].open=k.open;skuMap[sku].close=k.close;
+    });
+  }
+  const rows=Object.entries(skuMap).sort((a,b)=>b[1].sales-a[1].sales);
+  queryTableData=rows;
+
+  // 月增減（逐 SKU）
+  const prevMonth=state.month!=='全年度'&&MONTHS.indexOf(state.month)>0?MONTHS[MONTHS.indexOf(state.month)-1]:null;
+  const prevSkuS={};
+  if(prevMonth){
+    getFiltered(undefined,prevMonth).forEach(r=>{ prevSkuS[r.sku]=(prevSkuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  }
+
+  const tbody=document.getElementById('qDetailTable');
+  tbody.innerHTML=rows.map(([sku,v])=>{
+    const avg2=Math.round((v.open+v.close)/2);
+    const r=v.sales>0?(avg2/v.sales).toFixed(1):'—';
+    const rv=r==='—'?0:parseFloat(r);
+    const cls=rv>5?'badge-red':rv>3?'badge-yellow':'badge-green';
+    let momTd='—';
+    if(prevMonth&&prevSkuS[sku]!==undefined){
+      const prev=prevSkuS[sku]||0;
+      if(prev>0){const pct=Math.round((v.sales-prev)/prev*100);momTd=pct>0?`<span style="color:var(--success)">▲${pct}%</span>`:pct<0?`<span style="color:var(--danger)">▼${Math.abs(pct)}%</span>`:'持平';}
+      else momTd='新增';
+    }
+    return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td style="font-size:.78em">${v.cat}</td><td style="font-size:.72em;color:var(--muted)">${v.grade}</td><td style="color:var(--accent)">${v.sales}</td><td>${momTd}</td><td>${v.open}</td><td>${v.close}</td><td>${avg2}</td><td><span class="badge ${cls}">×${r}</span></td></tr>`;
+  }).join('');
+}
+
+// ══ Excel 匯出 ══
+function exportStockExcel(){
+  const wsData=[['型號','類別','銷售','期末庫存','庫銷比','狀態','建議']];
+  stockTableData.forEach(([sku,v])=>{
+    const r=v.sales>0?(v.close/v.sales).toFixed(1):'∞';
+    const rv=r==='∞'?999:parseFloat(r);
+    const label=rv>=5?'積貨警示':rv>=3?'注意':v.close===0?'缺貨':'健康';
+    const suggest=rv>=5?'建議促銷/移倉':v.close<=RESTOCK_THRESHOLD&&v.close>0?'建議補貨':v.close===0?'需補貨':'—';
+    wsData.push([sku,v.cat,v.sales,v.close,`×${r}`,label,suggest]);
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb,ws,'庫存健康度');
+  XLSX.writeFile(wb,`庫存報表_${state.year}年${state.month}_${state.store}.xlsx`);
+}
+function exportQueryExcel(){
+  const wsData=[['型號','類別','級別','銷售','期初庫存','期末庫存','平均庫存','庫銷比']];
+  queryTableData.forEach(([sku,v])=>{
+    const avg2=Math.round((v.open+v.close)/2);
+    const r=v.sales>0?(avg2/v.sales).toFixed(1):'—';
+    wsData.push([sku,v.cat,v.grade,v.sales,v.open,v.close,avg2,`×${r}`]);
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(wsData);
+  XLSX.utils.book_append_sheet(wb,ws,'查詢明細');
+  XLSX.writeFile(wb,`查詢報表_${state.year}年${state.month}_${state.store}.xlsx`);
+}
+
+// ══ AI 報告 ══
+async function generateAI(){
+  const btn=document.getElementById('aiBtn'),out=document.getElementById('aiOut');
+  btn.disabled=true;btn.textContent='⏳ 分析中...';
+  out.innerHTML='<span style="color:var(--muted)">AI 正在分析，請稍候（約 10-20 秒）…</span>';
+  const data=getRaw('總通路',state.month);
+  if(!data.length){out.innerHTML='<span style="color:var(--danger)">無資料可分析</span>';btn.disabled=false;btn.textContent='✨ 產生報告';return;}
+  const skuS={},storeS={},catS={},skuC={};
+  data.forEach(r=>{
+    skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0);
+    storeS[r.store]=(storeS[r.store]||0)+(parseInt(r.sales)||0);
+    catS[r.category]=(catS[r.category]||0)+(parseInt(r.sales)||0);
+    skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0);
+  });
+  const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const storeRank=Object.entries(storeS).filter(([s])=>s!=='總通路').sort((a,b)=>b[1]-a[1]);
+  const highR=Object.entries(skuS).map(([sku,s])=>{const c=skuC[sku]||0;const r=s>0?(c/s).toFixed(1):'∞';return{sku,sales:s,close:c,ratio:r};}).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
+  const lowStock=Object.entries(skuC).filter(([,c])=>c>0&&c<=RESTOCK_THRESHOLD).map(([sku,c])=>({sku,close:c})).slice(0,5);
+
+  const prompt=`你是專業零售業分析師，請用繁體中文寫一份簡潔分析報告（約400字）。
+
+【篩選條件】年度：${state.year}年 · 月份：${state.month}
+
+【熱銷TOP10】
+${top10.map((s,i)=>`${i+1}. ${s[0]}：${s[1]}雙`).join('\n')}
+
+【門市業績排行】
+${storeRank.map((s,i)=>`${i+1}. ${s[0]}：${s[1]}雙`).join('\n')}
+
+【各類別銷售】
+${Object.entries(catS).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}：${v}雙`).join('、')}
+
+【庫銷比過高（>5倍）】
+${highR.length?highR.map(x=>`${x.sku}：庫存${x.close}雙，銷售${x.sales}雙，×${x.ratio}`).join('\n'):'無'}
+
+【補貨建議（庫存≤${RESTOCK_THRESHOLD}雙）】
+${lowStock.length?lowStock.map(x=>`${x.sku}：剩${x.close}雙`).join('、'):'無'}
+
+請分析：
+1. 整體銷售重點摘要
+2. 最暢銷商品特徵
+3. 業績落後門市原因與建議
+4. 積貨風險與處置建議
+5. 補貨優先順序
+6. 下個月行動建議
+
+用條列式，語氣專業易懂。`;
+
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-allow-browser":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1200,messages:[{role:"user",content:prompt}]})
+    });
+    const d=await res.json();
+    const text=d.content?.[0]?.text||'分析失敗，請稍後再試。';
+    out.innerHTML=text.replace(/\n\n/g,'</p><p style="margin-top:10px">').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--text)">$1</strong>').replace(/^/,'<p>').replace(/$/,'</p>');
+  }catch(e){
+    out.innerHTML=`<span style="color:var(--danger)">分析失敗：${e.message}（請先儲值 API Credits）</span>`;
+  }
+  btn.disabled=false;btn.textContent='✨ 重新分析';
+}
+
+function refreshAll(){
+  renderOverview();
+  if(document.getElementById('page-sales').classList.contains('active')) renderSales();
+  if(document.getElementById('page-stock').classList.contains('active')) renderStock();
+  if(document.getElementById('page-query').classList.contains('active')) renderQuery();
+}
+
+// 切換頁面時才渲染
+function switchPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='sales') renderSales();
+  if(name==='stock') renderStock();
+  if(name==='query') renderQuery();
+}
+
+window.onload=function(){ document.getElementById('pwInput').focus(); };
+</script>
+</body>
+</html>
