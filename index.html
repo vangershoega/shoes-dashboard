@@ -446,8 +446,12 @@ function syncYears(sourceId){
 
 // ── 建立篩選器 ──
 function buildFilters(){
-  const grades=[...new Set(rawData.map(r=>r.grade).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
-  const cats=[...new Set(rawData.map(r=>r.category).filter(Boolean))].sort();
+  const GRADE_ORDER=['2025新款', 'A+ 商品 (前30%)', 'A  商品 (30-60%)', 'A- 商品 (60~80%)', 'B+ 商品 (80-85%)', 'B  商品 (85-90%)', 'B- 商品 (後10%)', '2025淘汰款', '歷年累計特賣款', '2024淘汰款', '打樣鞋', '未分級'];
+  const gradeSet=[...new Set(rawData.map(r=>r.grade).filter(Boolean))];
+  const grades=[...GRADE_ORDER.filter(g=>gradeSet.includes(g)),...gradeSet.filter(g=>!GRADE_ORDER.includes(g)).sort()];
+  const CAT_ORDER=['流行休閒鞋', '增高系列', '速穿系列', '3M防水鞋系列', '素面皮鞋', '雕花皮鞋', '樂福、豆豆鞋', '孟克鞋', '半正式皮鞋', '靴子', '特賣會商品', '打樣鞋', '票券', '未分類'];
+  const catSet=[...new Set(rawData.map(r=>r.category).filter(Boolean))];
+  const cats=[...CAT_ORDER.filter(c=>catSet.includes(c)),...catSet.filter(c=>!CAT_ORDER.includes(c)).sort()];
 
   // 年份
   ['ovYear','saYear','stYear','qYear'].forEach(id=>{
