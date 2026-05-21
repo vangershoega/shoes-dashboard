@@ -446,7 +446,7 @@ function syncYears(sourceId){
 
 // ── 建立篩選器 ──
 function buildFilters(){
-  const grades=[...new Set(rawData.map(r=>r.grade).filter(Boolean))].sort();
+  const grades=[...new Set(rawData.map(r=>r.grade).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
   const cats=[...new Set(rawData.map(r=>r.category).filter(Boolean))].sort();
 
   // 年份
@@ -479,10 +479,10 @@ function buildFilters(){
       +cats.map(c=>`<button class="ftab" onclick="toggleF('category','${c}',this,'${id}')">${c}</button>`).join('');
   });
 
-  // 級別
+  // 級別（直接用資料裡的精確字串）
   const gEl=document.getElementById('qGradeTabs');
   if(gEl) gEl.innerHTML=`<button class="ftab active" onclick="toggleF('grade','全級別',this,'qGradeTabs')">全級別</button>`
-    +grades.map(g=>`<button class="ftab" onclick="toggleF('grade','${g}',this,'qGradeTabs')">${g}</button>`).join('');
+    +grades.map(g=>`<button class="ftab" onclick="toggleF('grade','${g}',this,'qGradeTabs')">${g.replace(/  /,' ')}</button>`).join('');
 
   renderSkuTabs();
 }
@@ -1057,7 +1057,7 @@ function refreshAll(){
   if(document.getElementById('page-query').classList.contains('active')) renderQuery();
 }
 
-// 切換頁面時才渲染
+// 切換頁面時才渲染（不清空篩選，保留條件跨頁使用）
 function switchPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
@@ -1065,7 +1065,7 @@ function switchPage(name,el){
   el.classList.add('active');
   if(name==='sales') renderSales();
   if(name==='stock') renderStock();
-  if(name==='query') renderQuery();
+  if(name==='query'){ renderSkuTabs(); renderQuery(); }
 }
 
 window.onload=function(){ document.getElementById('pwInput').focus(); };
