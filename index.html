@@ -730,9 +730,18 @@ function renderSales(){
       <span class="rank-val">${s}</span>
     </div>`).join('');
 
-  // 門市橫條
+  // 門市橫條（跟著篩選條件連動）
   const stArr=STORES.filter(s=>s!=='總通路');
-  const ssData=stArr.map(s=>getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.sales)||0),0));
+  const ssData=stArr.map(s=>{
+    return rawData.filter(r=>{
+      if(r.year!==state.year||r.store!==s) return false;
+      if(state.month!=='全年度'&&r.month!==state.month) return false;
+      if(state.filters.grade.length&&!state.filters.grade.includes(r.grade)) return false;
+      if(state.filters.category.length&&!state.filters.category.includes(r.category)) return false;
+      if(state.filters.sku.length&&!state.filters.sku.includes(r.sku)) return false;
+      return true;
+    }).reduce((a,r)=>a+(parseInt(r.sales)||0),0);
+  });
   makeChart('saStoreChart','bar',{labels:stArr,datasets:[{label:'銷售',data:ssData,backgroundColor:COLORS[1]+'bb',borderRadius:4}]},
     {indexAxis:'y',...gridOpts,plugins:{legend:{display:false}}});
 
