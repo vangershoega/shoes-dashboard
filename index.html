@@ -662,10 +662,9 @@ function renderOverview(){
     ['ov-sales-mom','ov-open-mom','ov-close-mom','ov-ratio-mom'].forEach(id=>document.getElementById(id).innerHTML='');
   }
 
-  // TOP10（用全年度資料）
-  const dataAllMonth=getRaw('總通路','全年度');
+  // TOP10（依所選月份篩選）
   const skuS={};
-  dataAllMonth.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  data.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
   const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const mx=top10[0]?.[1]||1;
   document.getElementById('top10List').innerHTML=top10.map(([sku,s],i)=>{
