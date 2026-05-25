@@ -662,9 +662,15 @@ function renderOverview(){
     ['ov-sales-mom','ov-open-mom','ov-close-mom','ov-ratio-mom'].forEach(id=>document.getElementById(id).innerHTML='');
   }
 
-  // TOP10（依所選月份篩選）
+  // TOP10（明確依 state.month 篩選，不依賴上方 data）
+  const top10Raw=rawData.filter(r=>
+    r.year===state.year &&
+    r.store==='總通路' &&
+    (state.month==='全年度' || r.month===state.month)
+  );
+  console.log('[TOP10] month='+state.month+' rows='+top10Raw.length);
   const skuS={};
-  data.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
+  top10Raw.forEach(r=>{ skuS[r.sku]=(skuS[r.sku]||0)+(parseInt(r.sales)||0); });
   const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const mx=top10[0]?.[1]||1;
   document.getElementById('top10List').innerHTML=top10.map(([sku,s],i)=>{
