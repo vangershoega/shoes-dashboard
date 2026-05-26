@@ -637,6 +637,13 @@ const gridOpts={scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ti
 // ══ 總覽 ══
 function renderOverview(){
   const data=getRaw('總通路',state.month);
+  // DEBUG
+  console.log('[KPI DEBUG] store=總通路 month='+state.month+' year='+state.year);
+  console.log('[KPI DEBUG] 筆數='+data.length+' 銷售加總='+data.reduce((a,r)=>a+(parseInt(r.sales)||0),0));
+  const dupCheck={};
+  data.forEach(r=>{ dupCheck[r.sku]=(dupCheck[r.sku]||0)+1; });
+  const dups=Object.entries(dupCheck).filter(([,v])=>v>1);
+  if(dups.length) console.warn('[KPI DEBUG] 重複SKU:', dups);
   const kpi=getKPI(data);
   const avg=Math.round((kpi.open+kpi.close)/2);
   const ratio=kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
