@@ -579,7 +579,15 @@ function getFiltered(overStore,overMonth){
   });
 }
 function getRaw(store,month){
-  return rawData.filter(r=>r.year===state.year&&r.store===store&&(month==='全年度'||r.month===month));
+  const rows=rawData.filter(r=>r.year===state.year&&r.store===store&&(month==='全年度'||r.month===month));
+  // 去重：同一 year+store+month+sku 只保留第一筆，避免重複計算
+  const seen=new Set();
+  return rows.filter(r=>{
+    const key=r.year+'|'+r.store+'|'+r.month+'|'+r.sku;
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 function aggByMonth(data){
   const m={};
@@ -643,7 +651,13 @@ function renderOverview(){
   const dupCheck={};
   data.forEach(r=>{ dupCheck[r.sku]=(dupCheck[r.sku]||0)+1; });
   const dups=Object.entries(dupCheck).filter(([,v])=>v>1);
-  if(dups.length) console.warn('[KPI DEBUG] 重複SKU:', dups);
+  if(dups.length){
+    console.warn('[KPI DEBUG] 重複SKU: ' + JSON.stringify(dups));
+    dups.forEach(([sku])=>{
+      const rows=data.filter(r=>r.sku===sku);
+      console.warn('[KPI DEBUG] 重複資料:', JSON.stringify(rows));
+    });
+  }
   const kpi=getKPI(data);
   const avg=Math.round((kpi.open+kpi.close)/2);
   const ratio=kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
