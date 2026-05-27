@@ -389,12 +389,12 @@ const API_KEY = 'sk-ant-api03-yzk2Wv_SiwJ-37n5FMnrVm6n1KHLT1BkzqNaflGdOscAFBKTsw
 const RESTOCK_THRESHOLD = 10; // 低於此庫存顯示補貨建議
 
 firebase.initializeApp({
-  apiKey:"AIzaSyAimgD7BUG3AiLis9IVgmXawUWQ_kSIpt8",
-  authDomain:"shoes-dashboard-69b31.firebaseapp.com",
-  projectId:"shoes-dashboard-69b31",
-  storageBucket:"shoes-dashboard-69b31.firebasestorage.app",
-  messagingSenderId:"1066943168381",
-  appId:"1:1066943168381:web:dff73609a66aa9b1ba1614"
+  apiKey:"AIzaSyABpbANLU3aIBKq4Hg1qWggqJC4pCKyDxA",
+  authDomain:"shoes-dashboard-fb37b.firebaseapp.com",
+  projectId:"shoes-dashboard-fb37b",
+  storageBucket:"shoes-dashboard-fb37b.firebasestorage.app",
+  messagingSenderId:"863647936820",
+  appId:"1:863647936820:web:7655770c4d7d84667df561"
 });
 const db = firebase.firestore();
 
@@ -580,14 +580,15 @@ function getFiltered(overStore,overMonth){
 }
 function getRaw(store,month){
   const rows=rawData.filter(r=>r.year===state.year&&r.store===store&&(month==='全年度'||r.month===month));
-  // 去重：同一 year+store+month+sku 只保留第一筆，避免重複計算
-  const seen=new Set();
-  return rows.filter(r=>{
+  // 去重：同一 year+store+month+sku 若有多筆，保留 sales 最大的那筆
+  const skuMap={};
+  rows.forEach(r=>{
     const key=r.year+'|'+r.store+'|'+r.month+'|'+r.sku;
-    if(seen.has(key)) return false;
-    seen.add(key);
-    return true;
+    if(!skuMap[key]||( parseInt(r.sales)||0)>(parseInt(skuMap[key].sales)||0)){
+      skuMap[key]=r;
+    }
   });
+  return Object.values(skuMap);
 }
 function aggByMonth(data){
   const m={};
@@ -645,19 +646,21 @@ const gridOpts={scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ti
 // ══ 總覽 ══
 function renderOverview(){
   const data=getRaw('總通路',state.month);
-  // DEBUG
-  console.log('[KPI DEBUG] store=總通路 month='+state.month+' year='+state.year);
-  console.log('[KPI DEBUG] 筆數='+data.length+' 銷售加總='+data.reduce((a,r)=>a+(parseInt(r.sales)||0),0));
-  const dupCheck={};
-  data.forEach(r=>{ dupCheck[r.sku]=(dupCheck[r.sku]||0)+1; });
-  const dups=Object.entries(dupCheck).filter(([,v])=>v>1);
-  if(dups.length){
-    console.warn('[KPI DEBUG] 重複SKU: ' + JSON.stringify(dups));
-    dups.forEach(([sku])=>{
-      const rows=data.filter(r=>r.sku===sku);
-      console.warn('[KPI DEBUG] 重複資料:', JSON.stringify(rows));
-    });
-  }
+  // DEBUG - 查各 store 的筆數分布
+  const _storeCount={};
+  rawData.filter(r=>r.year===state.year&&r.month===state.month).forEach(r=>{
+    _storeCount[r.store]=(_storeCount[r.store]||0)+1;
+  });
+  console.log('[RAW DEBUG] 各store筆數:', JSON.stringify(_storeCount));
+  // 查總通路裡有哪些 store 值
+  const _storesIn總通路=[...new Set(rawData.filter(r=>r.year===state.year&&r.store==='總通路'&&r.month===state.month).map(r=>r.store))];
+  // 看看是否有某SKU在總通路有兩筆但category不同
+  const _debugRaw=rawData.filter(r=>r.year===state.year&&r.store==='總通路'&&r.month===state.month);
+  const _skuMap={};
+  _debugRaw.forEach(r=>{ if(!_skuMap[r.sku]) _skuMap[r.sku]=[]; _skuMap[r.sku].push({sales:r.sales,cat:r.category,grade:r.grade}); });
+  const _dupSkus=Object.entries(_skuMap).filter(([,v])=>v.length>1);
+  console.log('[RAW DEBUG] 重複SKU詳情:', JSON.stringify(_dupSkus.slice(0,3)));
+  console.log('[RAW DEBUG] 總通路總銷售='+_debugRaw.reduce((a,r)=>a+(parseInt(r.sales)||0),0)+' 筆數='+_debugRaw.length);
   const kpi=getKPI(data);
   const avg=Math.round((kpi.open+kpi.close)/2);
   const ratio=kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
