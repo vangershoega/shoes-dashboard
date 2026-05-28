@@ -85,6 +85,28 @@ body{font-family:'Microsoft JhengHei','微軟正黑體',sans-serif;background:va
 /* ── Filter ── */
 .filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center;}
 .filter-label{font-size:.72em;color:var(--muted);font-weight:700;letter-spacing:.05em;white-space:nowrap;min-width:30px;}
+
+/* 手機版篩選器摘要 */
+.mobile-filter-summary {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-radius: 8px;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+.mobile-filter-summary:active { background: var(--border); }
+.filter-content { display: block; }
+@media (max-width: 768px) {
+  .mobile-filter-summary { display: flex; }
+  .filter-content { display: none; margin-top: 12px; }
+  .sticky-filter.expanded .filter-content { display: block; }
+}
 .sticky-filter { position: sticky; top: 46px; z-index: 99; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
 .ftab{border:none;background:var(--surface2);color:var(--muted);padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
 .ftab:hover{color:var(--text);}
@@ -204,12 +226,18 @@ tbody tr:hover{background:var(--surface2);}
 
 <!-- ═══ 總覽 ═══ -->
 <div id="page-overview" class="page active">
-  <div class="sticky-filter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:12px;border-radius:12px;background:var(--surface2);">
+  <div class="sticky-filter" style="margin-bottom:14px;padding:12px;border-radius:12px;background:var(--surface2);">
+      <div class="mobile-filter-summary" onclick="this.parentElement.classList.toggle('expanded')">
+        <span class="text">篩選器</span>
+        <span>▼ 展開 / 收合</span>
+      </div>
+      <div class="filter-content" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
     <select class="year-sel" id="ovYear" onchange="state.year=this.value;syncYears('ovYear');refreshAll();">
       <option value="113">113 年</option><option value="114">114 年</option>
       <option value="115" selected>115 年</option><option value="116">116 年</option>
     </select>
     <div id="ovMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+  </div>
   </div>
   <div class="kpi-grid">
     <div class="kpi-box kpi-s"><h3>全通路銷售</h3><div class="val" id="ov-sales">—</div><div class="unit">雙</div><div class="mom" id="ov-sales-mom"></div></div>
@@ -246,12 +274,18 @@ tbody tr:hover{background:var(--surface2);}
 <!-- ═══ 銷售分析 ═══ -->
 <div id="page-sales" class="page">
   <div class="card sticky-filter">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+    <div class="mobile-filter-summary" onclick="this.parentElement.classList.toggle('expanded')">
+      <span class="text">篩選器</span>
+      <span>▼ 展開 / 收合</span>
+    </div>
+    <div class="filter-content">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
       <select class="year-sel" id="saYear" onchange="state.year=this.value;syncYears('saYear');refreshAll();"></select>
       <div class="store-tabs" id="saStoreTabs" style="margin:0;"></div>
     </div>
     <div class="filter-row"><span class="filter-label">月份</span><div id="saMonthTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
     <div class="filter-row"><span class="filter-label">類別</span><div id="saCatTabs" style="display:flex;flex-wrap:wrap;gap:5px;"></div></div>
+    </div>
   </div>
   <div class="ov-grid">
     <div class="card" style="grid-column:1/-1;">
@@ -303,7 +337,12 @@ tbody tr:hover{background:var(--surface2);}
 <!-- ═══ 庫存管理 ═══ -->
 <div id="page-stock" class="page">
   <div class="card sticky-filter">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+    <div class="mobile-filter-summary" onclick="this.parentElement.classList.toggle('expanded')">
+      <span class="text">篩選器</span>
+      <span>▼ 展開 / 收合</span>
+    </div>
+    <div class="filter-content">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
       <select class="year-sel" id="stYear" onchange="state.year=this.value;syncYears('stYear');refreshAll();"></select>
       <div class="store-tabs" id="stStoreTabs" style="margin:0;"></div>
     </div>
@@ -364,7 +403,12 @@ tbody tr:hover{background:var(--surface2);}
 <!-- ═══ 查詢 ═══ -->
 <div id="page-query" class="page">
   <div class="card sticky-filter">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
+    <div class="mobile-filter-summary" onclick="this.parentElement.classList.toggle('expanded')">
+      <span class="text">篩選器</span>
+      <span>▼ 展開 / 收合</span>
+    </div>
+    <div class="filter-content">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
       <select class="year-sel" id="qYear" onchange="state.year=this.value;syncYears('qYear');refreshAll();"></select>
       <div class="store-tabs" id="qStoreTabs" style="margin:0;"></div>
     </div>
@@ -382,6 +426,7 @@ tbody tr:hover{background:var(--surface2);}
       <div id="skuPanel" style="display:none;" class="sku-panel">
         <div style="display:flex;flex-wrap:wrap;gap:4px;" id="skuTabsContainer"></div>
       </div>
+    </div>
     </div>
   </div>
   <div class="kpi-grid">
@@ -1284,7 +1329,27 @@ ${lowStock.length?lowStock.map(x=>`${x.sku}：剩${x.close}雙`).join('、'):'�
   btn.disabled=false;btn.textContent='✨ 重新分析';
 }
 
+
+function updateMobileSummary() {
+  const t = [];
+  t.push(state.year + '年');
+  if (state.store && state.store !== '總通路') t.push(state.store);
+  if (state.month) t.push(state.month);
+  
+  if (state.filters.category && state.filters.category.length) t.push(state.filters.category.join('、'));
+  
+  if (state.filters.grade && state.filters.grade.length) t.push(state.filters.grade.join('、'));
+  
+  if (state.filters.sku && state.filters.sku.length) t.push(state.filters.sku.length + '款型號');
+  
+  const text = t.join(' • ');
+  document.querySelectorAll('.mobile-filter-summary .text').forEach(el => {
+    el.textContent = '🔎 ' + text;
+  });
+}
+
 function refreshAll(){
+  updateMobileSummary();
   renderOverview();
   if(document.getElementById('page-sales').classList.contains('active')) renderSales();
   if(document.getElementById('page-stock').classList.contains('active')) renderStock();
