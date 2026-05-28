@@ -85,6 +85,7 @@ body{font-family:'Microsoft JhengHei','微軟正黑體',sans-serif;background:va
 /* ── Filter ── */
 .filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;align-items:center;}
 .filter-label{font-size:.72em;color:var(--muted);font-weight:700;letter-spacing:.05em;white-space:nowrap;min-width:30px;}
+.sticky-filter { position: sticky; top: 46px; z-index: 99; box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
 .ftab{border:none;background:var(--surface2);color:var(--muted);padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
 .ftab:hover{color:var(--text);}
 .ftab.active{background:var(--accent);color:#fff;}
@@ -203,7 +204,7 @@ tbody tr:hover{background:var(--surface2);}
 
 <!-- ═══ 總覽 ═══ -->
 <div id="page-overview" class="page active">
-  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+  <div class="sticky-filter" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:12px;border-radius:12px;background:var(--surface2);">
     <select class="year-sel" id="ovYear" onchange="state.year=this.value;syncYears('ovYear');refreshAll();">
       <option value="113">113 年</option><option value="114">114 年</option>
       <option value="115" selected>115 年</option><option value="116">116 年</option>
@@ -244,7 +245,7 @@ tbody tr:hover{background:var(--surface2);}
 
 <!-- ═══ 銷售分析 ═══ -->
 <div id="page-sales" class="page">
-  <div class="card">
+  <div class="card sticky-filter">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
       <select class="year-sel" id="saYear" onchange="state.year=this.value;syncYears('saYear');refreshAll();"></select>
       <div class="store-tabs" id="saStoreTabs" style="margin:0;"></div>
@@ -301,7 +302,7 @@ tbody tr:hover{background:var(--surface2);}
 
 <!-- ═══ 庫存管理 ═══ -->
 <div id="page-stock" class="page">
-  <div class="card">
+  <div class="card sticky-filter">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
       <select class="year-sel" id="stYear" onchange="state.year=this.value;syncYears('stYear');refreshAll();"></select>
       <div class="store-tabs" id="stStoreTabs" style="margin:0;"></div>
@@ -362,7 +363,7 @@ tbody tr:hover{background:var(--surface2);}
 
 <!-- ═══ 查詢 ═══ -->
 <div id="page-query" class="page">
-  <div class="card">
+  <div class="card sticky-filter">
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;">
       <select class="year-sel" id="qYear" onchange="state.year=this.value;syncYears('qYear');refreshAll();"></select>
       <div class="store-tabs" id="qStoreTabs" style="margin:0;"></div>
