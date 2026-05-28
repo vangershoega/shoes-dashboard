@@ -188,6 +188,38 @@ tbody tr:hover{background:var(--surface2);}
   .card{padding:14px;}
   .kpi-box .val{font-size:1.5em;}
 }
+
+/* 手機版排版優化 (解決左右滑動問題) */
+@media (max-width: 768px) {
+  .ov-grid {
+    grid-template-columns: 1fr !important; /* 強制單欄，避免 350px 撐破螢幕 */
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .alert-sku {
+    width: auto !important;
+    max-width: 140px;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .alert-info {
+    font-size: 0.8em;
+    margin-right: 5px;
+  }
+  .alert-val {
+    font-size: 0.95em;
+    margin-left: auto; /* 靠右對齊 */
+  }
+  .alert-item {
+    gap: 8px;
+  }
+  .card {
+    padding: 12px; /* 手機版減少卡片內距 */
+  }
+}
 </style>
 </head>
 <body>
