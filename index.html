@@ -216,6 +216,10 @@ tbody tr:hover{background:var(--surface2);}
     <div class="kpi-box kpi-c"><h3>期末庫存</h3><div class="val" id="ov-close">—</div><div class="unit">雙</div><div class="mom" id="ov-close-mom"></div></div>
     <div class="kpi-box kpi-a"><h3>整體庫銷比</h3><div class="val" id="ov-ratio">—</div><div class="unit">倍（&lt;3 健康）</div><div class="mom" id="ov-ratio-mom"></div></div>
   </div>
+    <div class="card">
+    <div class="card-title">📈 年對年同期比較 (YoY Trend Overlay)</div>
+    <div class="chart-wrap"><canvas id="ovYoYChart"></canvas></div>
+  </div>
   <div class="ov-grid">
     <div class="card">
       <div class="card-title">🔥 熱銷型號 TOP 10</div>
@@ -269,6 +273,29 @@ tbody tr:hover{background:var(--surface2);}
       <div class="card-title">📦 各類別銷售佔比</div>
       <div class="chart-wrap-sm"><canvas id="saCatChart"></canvas></div>
     </div>
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">📍 門市客群喜好熱力圖 (Store vs Category Heatmap)</div>
+      <div class="table-wrap">
+        <table id="heatmapTable" style="font-size:0.85em;text-align:center;"></table>
+      </div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">🏆 ABC 商品貢獻度分析 (Pareto 80/20)</div>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:1;min-width:250px;">
+          <div class="chart-wrap-sm"><canvas id="abcPieChart"></canvas></div>
+        </div>
+        <div style="flex:2;min-width:300px;">
+          <div style="font-size:0.8em;color:var(--muted);margin-bottom:8px;">🚨 A 級爆款庫存警示 (貢獻前 80% 業績的重點維護商品)</div>
+          <div class="table-wrap">
+            <table style="font-size:0.75em;text-align:center;">
+              <thead><tr><th style="text-align:left">型號</th><th>類別</th><th>銷售</th><th>累積佔比</th><th>期末庫存</th><th>庫銷比</th><th>狀態</th></tr></thead>
+              <tbody id="abcTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -307,6 +334,17 @@ tbody tr:hover{background:var(--surface2);}
         <span style="font-size:.78em;color:var(--muted);font-weight:400;">銷售量 vs 期末庫存 vs 庫銷比</span>
       </div>
       <div class="chart-wrap"><canvas id="stGradeRatioChart"></canvas></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-title">🔥 2025新款 售罄率追蹤 (New Arrivals Sell-Through Rate)
+        <span style="font-size:.78em;color:var(--muted);font-weight:400;">售罄率 = 銷售量 / (銷售量 + 期末庫存)</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="text-align:left">型號</th><th>類別</th><th>銷售量</th><th>期末庫存</th><th>售罄率</th><th>狀態</th><th>建議</th></tr></thead>
+          <tbody id="sellThroughTable"></tbody>
+        </table>
+      </div>
     </div>
     <div class="card" style="grid-column:1/-1;">
       <div class="card-title">🚦 庫存健康度總表
@@ -640,7 +678,15 @@ function renderOverview(){
 
   const kpi=getKPI(data);
   const avg=Math.round((kpi.open+kpi.close)/2);
-  const ratio=kpi.sales>0?(avg/kpi.sales).toFixed(1):'—';
+  let ratio='—';
+  if(kpi.sales>0){
+    if(state.month==='全年度'){
+      const mc=new Set(data.filter(r=>r.month).map(r=>r.month)).size||1;
+      ratio=(avg/(kpi.sales/mc)).toFixed(1);
+    }else{
+      ratio=(avg/kpi.sales).toFixed(1);
+    }
+  }
   document.getElementById('ov-sales').textContent=kpi.sales.toLocaleString();
   document.getElementById('ov-open').textContent=kpi.open.toLocaleString();
   document.getElementById('ov-close').textContent=kpi.close.toLocaleString();
@@ -702,18 +748,30 @@ function renderOverview(){
 
   // 警示
   const skuC={};
-  data.forEach(r=>{ skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0); });
+  if(state.month==='全年度'){
+    Object.keys(skuS).forEach(sku=>{ skuC[sku]=yearKPI(data.filter(r=>r.sku===sku)).close; });
+  }else{
+    data.forEach(r=>{ skuC[r.sku]=(skuC[r.sku]||0)+(parseInt(r.closing_stock)||0); });
+  }
   const alerts=Object.entries(skuS).map(([sku,s])=>{
     const c=skuC[sku]||0;
     const r=s>0?(c/s).toFixed(1):'∞';
     return {sku,sales:s,close:c,ratio:r};
-  }).filter(x=>x.close>0||x.sales>0)
-    .sort((a,b)=>(parseFloat(b.ratio)||999)-(parseFloat(a.ratio)||999)).slice(0,15);
+  }).filter(x=>{
+    if(!(x.close>0||x.sales>0)) return false;
+    const g=skuMeta[x.sku]?.grade||'';
+    if(['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g)) return false;
+    if(x.sku.includes('Vanger x Aaron')) return false;
+    if(x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品')) return false;
+    return true;
+  }).sort((a,b)=>(parseFloat(b.ratio)||999)-(parseFloat(a.ratio)||999)).slice(0,15);
   document.getElementById('alertList').innerHTML=alerts.map(x=>{
     const rv=x.ratio==='∞'?999:parseFloat(x.ratio);
     const cls=rv>=5?'dot-red':rv>=3?'dot-yellow':'dot-green';
     const vcls=rv>=5?'color:var(--danger)':rv>=3?'color:var(--warn)':'color:var(--success)';
-    const restock=x.close<=RESTOCK_THRESHOLD&&x.close>=0?'<span class="restock-badge">補貨</span>':'';
+    const g=skuMeta[x.sku]?.grade||'';
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品');
+    const restock=noRs?'<span style="background:rgba(139,144,168,.15);border:1px solid rgba(139,144,168,.4);color:var(--muted);padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:700;">淘汰款</span>':(x.close<=RESTOCK_THRESHOLD&&x.close>=0?'<span class="restock-badge">補貨</span>':'');
     return `<div class="alert-item">
       <div class="alert-dot ${cls}"></div>
       <span class="alert-sku">${x.sku}</span>
@@ -721,6 +779,23 @@ function renderOverview(){
       <span class="alert-val" style="${vcls}">×${x.ratio}</span>
     </div>`;
   }).join('');
+
+  // 📈 YoY Trend
+  const prevYear = (parseInt(state.year) - 1).toString();
+  const dCur = rawData.filter(r => r.year === state.year && r.store === '總通路');
+  const dPrev = rawData.filter(r => r.year === prevYear && r.store === '總通路');
+  const curByM = aggByMonth(dCur);
+  const prevByM = aggByMonth(dPrev);
+  const curSales = MONTHS.map(m => curByM[m]?.sales || 0);
+  const prevSales = MONTHS.map(m => prevByM[m]?.sales || 0);
+  
+  makeChart('ovYoYChart', 'line', {
+    labels: MONTHS,
+    datasets: [
+      { label: state.year + '年', data: curSales, borderColor: COLORS[0], backgroundColor: COLORS[0]+'22', fill: true, tension: .35, borderWidth: 2.5, pointRadius: 4, yAxisID: 'y' },
+      { label: prevYear + '年', data: prevSales, borderColor: COLORS[2], backgroundColor: 'transparent', fill: false, tension: .35, borderWidth: 2, borderDash: [6,3], pointRadius: 3, yAxisID: 'y' }
+    ]
+  }, { ...gridOpts });
 
   // 圓餅
   const catS={};
@@ -799,6 +874,79 @@ function renderSales(){
   const catA=Object.entries(catS).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   makeChart('saCatChart','doughnut',{labels:catA.map(([k])=>k),datasets:[{data:catA.map(([,v])=>v),backgroundColor:COLORS,borderWidth:0}]},
     {plugins:{legend:{labels:{color:'#8b90a8',font:{size:11}},position:'right'}}});
+
+  // 📍 熱力圖
+  const heatStores = ['官網', 'A13', '南西', '台中', '東區'];
+  const heatCats = [...window.CAT_ORDER.filter(c => catS[c]), ...Object.keys(catS).filter(c => !window.CAT_ORDER.includes(c))];
+  
+  let maxHeat = 0;
+  const heatData = {};
+  heatCats.forEach(c => {
+    heatData[c] = {};
+    heatStores.forEach(s => {
+      // 必須使用 rawData 重新篩選，因為目前的 data (getFiltered) 可能被鎖在總通路或特定門市
+      const sSales = rawData.filter(r => 
+        r.year === state.year && 
+        r.store === s && 
+        r.category === c && 
+        (state.month === '全年度' || r.month === state.month) &&
+        (state.filters.grade.length === 0 || state.filters.grade.includes(r.grade))
+      ).reduce((sum, r) => sum + (parseInt(r.sales)||0), 0);
+      heatData[c][s] = sSales;
+      if (sSales > maxHeat) maxHeat = sSales;
+    });
+  });
+
+  const heatmapHtml = `<thead><tr><th style="text-align:left;background:var(--surface2)">類別 \ 門市</th>` + heatStores.map(s => `<th style="background:var(--surface2)">${s}</th>`).join('') + `</tr></thead>` +
+    `<tbody>` + heatCats.map(c => `<tr><td style="text-align:left;font-weight:bold">${c}</td>` + 
+      heatStores.map(s => {
+        const val = heatData[c][s];
+        const alpha = maxHeat > 0 ? (val / maxHeat) * 0.85 + 0.05 : 0;
+        const bg = val > 0 ? `rgba(79, 142, 247, ${alpha})` : 'transparent';
+        const color = alpha > 0.4 ? '#fff' : 'var(--text)';
+        return `<td style="background:${bg};color:${color};font-weight:bold">${val || '-'}</td>`;
+      }).join('') + `</tr>`).join('') + `</tbody>`;
+  document.getElementById('heatmapTable').innerHTML = heatmapHtml;
+
+  // 🏆 ABC 分析
+  const totalSales = Object.values(skuS).reduce((sum, v) => sum + v, 0);
+  let cum = 0;
+  let aCnt=0, bCnt=0, cCnt=0;
+  const abcRows = [];
+  
+  const skuC = {};
+  if (state.month === '全年度') {
+    Object.keys(skuS).forEach(sku => { skuC[sku] = yearKPI(dataAllMonth.filter(r => r.sku === sku)).close; });
+  } else {
+    data.forEach(r => { skuC[r.sku] = (skuC[r.sku] || 0) + (parseInt(r.closing_stock) || 0); });
+  }
+
+  const allSkusSorted = Object.entries(skuS).sort((a,b) => b[1] - a[1]);
+  allSkusSorted.forEach(([sku, s]) => {
+    cum += s;
+    const pct = totalSales > 0 ? (cum / totalSales) * 100 : 0;
+    let cls = 'C';
+    if (pct <= 80) { cls = 'A'; aCnt++; }
+    else if (pct <= 95) { cls = 'B'; bCnt++; }
+    else { cls = 'C'; cCnt++; }
+    
+    if (cls === 'A') {
+      const c = skuC[sku] || 0;
+      const cat = skuMeta[sku]?.category || '';
+      const ratio = s > 0 ? (c / s).toFixed(1) : '∞';
+      const rv = ratio === '∞' ? 999 : parseFloat(ratio);
+      const isLow = rv < 1.5;
+      const badge = isLow ? `<span class="badge badge-red">⚠️ 缺貨警示</span>` : `<span class="badge badge-green">安全</span>`;
+      abcRows.push(`<tr><td style="text-align:left;font-weight:bold">${sku}</td><td>${cat}</td><td style="color:var(--accent);font-weight:bold">${s}</td><td>${pct.toFixed(1)}%</td><td style="${isLow?'color:var(--danger);font-weight:bold':''}">${c}</td><td style="${isLow?'color:var(--danger);font-weight:bold':''}">&times;${ratio}</td><td>${badge}</td></tr>`);
+    }
+  });
+
+  makeChart('abcPieChart', 'doughnut', {
+    labels: ['A級 (貢獻80%業績)','B級 (貢獻15%業績)','C級 (最後5%長尾)'],
+    datasets: [{ data: [aCnt, bCnt, cCnt], backgroundColor: [COLORS[3], COLORS[1], COLORS[0]], borderWidth: 0 }]
+  }, { plugins: { legend: { labels: { color: '#8b90a8', font: { size: 11 } }, position: 'bottom' }, title: {display:true, text:'各級別商品數量分佈', color:'#8b90a8'} } });
+  
+  document.getElementById('abcTable').innerHTML = abcRows.length ? abcRows.join('') : `<tr><td colspan="6">無資料</td></tr>`;
 }
 
 // ══ 庫存管理 ══
@@ -810,7 +958,15 @@ function renderStock(){
   // KPI
   const kpi = state.month==='全年度' ? yearKPI(data) : singleKPI(data);
   const avg = Math.round((kpi.open+kpi.close)/2);
-  const ratio = kpi.sales>0 ? (avg/kpi.sales).toFixed(1) : '—';
+  let ratio = '—';
+  if(kpi.sales>0){
+    if(state.month==='全年度'){
+      const mc=new Set(data.filter(r=>r.month).map(r=>r.month)).size||1;
+      ratio=(avg/(kpi.sales/mc)).toFixed(1);
+    }else{
+      ratio=(avg/kpi.sales).toFixed(1);
+    }
+  }
   document.getElementById('st-open').textContent  = kpi.open.toLocaleString();
   document.getElementById('st-close').textContent = kpi.close.toLocaleString();
   document.getElementById('st-avg').textContent   = avg.toLocaleString();
@@ -820,8 +976,12 @@ function renderStock(){
   data.forEach(r=>{
     if(!skuMap[r.sku]) skuMap[r.sku]={sales:0,close:0,cat:r.category,grade:r.grade};
     skuMap[r.sku].sales+=parseInt(r.sales)||0;
-    skuMap[r.sku].close+=parseInt(r.closing_stock)||0;
   });
+  if(state.month==='全年度'){
+    Object.keys(skuMap).forEach(sku=>{ skuMap[sku].close=yearKPI(data.filter(r=>r.sku===sku)).close; });
+  }else{
+    data.forEach(r=>{ skuMap[r.sku].close+=parseInt(r.closing_stock)||0; });
+  }
   const rows=Object.entries(skuMap).sort((a,b)=>(b[1].sales>0?b[1].close/b[1].sales:999)-(a[1].sales>0?a[1].close/a[1].sales:999));
   stockTableData=rows;
 
@@ -831,8 +991,9 @@ function renderStock(){
     const rv=r==='∞'?999:parseFloat(r);
     const cls=rv>=5?'badge-red':rv>=3?'badge-yellow':v.close===0?'badge-gray':'badge-green';
     const label=rv>=5?'積貨警示':rv>=3?'注意':v.close===0?'缺貨':'健康';
-    const suggest=rv>=5?'建議促銷/移倉':v.close<=RESTOCK_THRESHOLD&&v.close>0?'⚠️ 建議補貨':v.close===0?'需補貨':'—';
-    const sugCls=suggest.includes('補貨')||suggest.includes('補貨')?'color:var(--danger)':suggest.includes('促銷')?'color:var(--warn)':'color:var(--muted)';
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(v.grade) || sku.startsWith('特價') || sku.startsWith('瑕疵') || sku.startsWith('樣品');
+    const suggest=rv>=5?'建議促銷/移倉':!noRs&&v.close<=RESTOCK_THRESHOLD&&v.close>0?'⚠️ 建議補貨':!noRs&&v.close===0?'需補貨':'—';
+    const sugCls=suggest.includes('補貨')?'color:var(--danger)':suggest.includes('促銷')?'color:var(--warn)':'color:var(--muted)';
     return `<tr><td style="text-align:left;font-weight:700">${sku}</td><td>${v.cat}</td><td style="color:var(--accent)">${v.sales}</td><td>${v.close}</td><td>×${r}</td><td><span class="badge ${cls}">${label}</span></td><td style="${sugCls};font-size:.78em">${suggest}</td></tr>`;
   }).join('');
 
@@ -920,9 +1081,40 @@ function renderStock(){
 
   // 門市庫存
   const stArr=STORES.filter(s=>s!=='總通路');
-  const stC=stArr.map(s=>getRaw(s,state.month).reduce((a,r)=>a+(parseInt(r.closing_stock)||0),0));
+  const stC=stArr.map(s=>{
+    const d=getRaw(s,state.month);
+    return state.month==='全年度' ? yearKPI(d).close : d.reduce((a,r)=>a+(parseInt(r.closing_stock)||0),0);
+  });
   makeChart('stStoreChart','bar',{labels:stArr,datasets:[{label:'期末庫存',data:stC,backgroundColor:COLORS[2]+'bb',borderRadius:4}]},
     {scales:{x:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}},y:{ticks:{color:'#8b90a8'},grid:{color:'#2e3150'}}},plugins:{legend:{display:false}}});
+
+  // 🔥 新品售罄率追蹤
+  const newSkuMap = {};
+  data.filter(r => (r.grade || '').includes('2025新款')).forEach(r => {
+    if (!newSkuMap[r.sku]) newSkuMap[r.sku] = { sales: 0, close: 0, cat: r.category };
+    newSkuMap[r.sku].sales += parseInt(r.sales) || 0;
+  });
+  
+  if (state.month === '全年度') {
+    Object.keys(newSkuMap).forEach(sku => { newSkuMap[sku].close = yearKPI(data.filter(r => r.sku === sku)).close; });
+  } else {
+    data.filter(r => (r.grade || '').includes('2025新款')).forEach(r => { newSkuMap[r.sku].close += parseInt(r.closing_stock) || 0; });
+  }
+
+  const strRows = Object.entries(newSkuMap).map(([sku, v]) => {
+    const total = v.sales + v.close;
+    const str = total > 0 ? (v.sales / total * 100).toFixed(1) : 0;
+    return { sku, cat: v.cat, sales: v.sales, close: v.close, str: parseFloat(str) };
+  }).sort((a,b) => b.str - a.str);
+
+  document.getElementById('sellThroughTable').innerHTML = strRows.length ? strRows.map(v => {
+    const isHot = v.str >= 70;
+    const isSlow = v.str < 20;
+    const cls = isHot ? 'badge-red' : isSlow ? 'badge-yellow' : 'badge-green';
+    const label = isHot ? '🔥 熱銷快斷貨' : isSlow ? '🐢 潛在滯銷' : '正常流動';
+    const sug = isHot ? '強烈建議追加補貨' : isSlow ? '建議增加行銷曝光' : '—';
+    return `<tr><td style="text-align:left;font-weight:bold">${v.sku}</td><td>${v.cat}</td><td style="color:var(--accent);font-weight:bold">${v.sales}</td><td>${v.close}</td><td style="font-weight:bold">${v.str}%</td><td><span class="badge ${cls}">${label}</span></td><td style="font-size:0.78em;color:${isHot?'var(--danger)':isSlow?'var(--warn)':'var(--muted)'}">${sug}</td></tr>`;
+  }).join('') : `<tr><td colspan="7">無新款資料</td></tr>`;
 }
 
 // ══ 查詢 ══
@@ -1002,7 +1194,8 @@ function exportStockExcel(){
     const r=v.sales>0?(v.close/v.sales).toFixed(1):'∞';
     const rv=r==='∞'?999:parseFloat(r);
     const label=rv>=5?'積貨警示':rv>=3?'注意':v.close===0?'缺貨':'健康';
-    const suggest=rv>=5?'建議促銷/移倉':v.close<=RESTOCK_THRESHOLD&&v.close>0?'建議補貨':v.close===0?'需補貨':'—';
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(v.grade) || sku.startsWith('特價') || sku.startsWith('瑕疵') || sku.startsWith('樣品');
+    const suggest=rv>=5?'建議促銷/移倉':!noRs&&v.close<=RESTOCK_THRESHOLD&&v.close>0?'建議補貨':!noRs&&v.close===0?'需補貨':'—';
     wsData.push([sku,v.cat,v.sales,v.close,`×${r}`,label,suggest]);
   });
   const wb=XLSX.utils.book_new();
@@ -1040,7 +1233,11 @@ async function generateAI(){
   const top10=Object.entries(skuS).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const storeRank=Object.entries(storeS).filter(([s])=>s!=='總通路').sort((a,b)=>b[1]-a[1]);
   const highR=Object.entries(skuS).map(([sku,s])=>{const c=skuC[sku]||0;const r=s>0?(c/s).toFixed(1):'∞';return{sku,sales:s,close:c,ratio:r};}).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
-  const lowStock=Object.entries(skuC).filter(([,c])=>c>0&&c<=RESTOCK_THRESHOLD).map(([sku,c])=>({sku,close:c})).slice(0,5);
+  const lowStock=Object.entries(skuC).filter(([sku,c])=>{
+    const g=skuMeta[sku]?.grade||'';
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品');
+    return !noRs&&c>0&&c<=RESTOCK_THRESHOLD;
+  }).map(([sku,c])=>({sku,close:c})).slice(0,5);
 
   const prompt=`你是專業零售業分析師，請用繁體中文寫一份簡潔分析報告（約400字）。
 
