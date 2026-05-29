@@ -675,6 +675,13 @@ function updateTags(){
   const el=document.getElementById('selectedTags');
   if(el) el.innerHTML=state.filters.sku.map(s=>`<span class="stag">${s}<span class="stag-x" onclick="removeSku('${s}')">×</span></span>`).join('');
 }
+function switchPage(name,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  el.classList.add('active');
+}
+
 // ── 資料工具 ──
 function getFiltered(overStore,overMonth){
   const store=overStore||state.store, month=overMonth||state.month;
@@ -1306,7 +1313,7 @@ async function generateAI(){
   const highR=Object.entries(skuS).map(([sku,s])=>{const c=skuC[sku]||0;const r=s>0?(c/s).toFixed(1):'∞';return{sku,sales:s,close:c,ratio:r};}).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
   const lowStock=Object.entries(skuC).filter(([sku,c])=>{
     const g=skuMeta[sku]?.grade||'';
-    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || sku.startsWith('特價') || sku.startsWith('瑕疵') || sku.startsWith('樣品');
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品');
     return !noRs&&c>0&&c<=RESTOCK_THRESHOLD;
   }).map(([sku,c])=>({sku,close:c})).slice(0,5);
 
