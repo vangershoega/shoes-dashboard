@@ -849,7 +849,7 @@ function renderOverview(){
     const cls=rv>=5?'dot-red':rv>=3?'dot-yellow':'dot-green';
     const vcls=rv>=5?'color:var(--danger)':rv>=3?'color:var(--warn)':'color:var(--success)';
     const g=skuMeta[x.sku]?.grade||'';
-    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品');
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || sku.startsWith('特價') || sku.startsWith('瑕疵') || sku.startsWith('樣品');
     const restock=noRs?'<span style="background:rgba(139,144,168,.15);border:1px solid rgba(139,144,168,.4);color:var(--muted);padding:2px 8px;border-radius:20px;font-size:.72em;font-weight:700;">淘汰款</span>':(x.close<=RESTOCK_THRESHOLD&&x.close>=0?'<span class="restock-badge">補貨</span>':'');
     return `<div class="alert-item">
       <div class="alert-dot ${cls}"></div>
@@ -1314,7 +1314,7 @@ async function generateAI(){
   const highR=Object.entries(skuS).map(([sku,s])=>{const c=skuC[sku]||0;const r=s>0?(c/s).toFixed(1):'∞';return{sku,sales:s,close:c,ratio:r};}).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
   const lowStock=Object.entries(skuC).filter(([sku,c])=>{
     const g=skuMeta[sku]?.grade||'';
-    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品');
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || sku.startsWith('特價') || sku.startsWith('瑕疵') || sku.startsWith('樣品');
     return !noRs&&c>0&&c<=RESTOCK_THRESHOLD;
   }).map(([sku,c])=>({sku,close:c})).slice(0,5);
 
