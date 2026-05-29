@@ -537,20 +537,53 @@ function checkPw(){
 }
 
 // ── Firebase ──
-async function loadAllData(){
+async function loadAllData(force = false){
   try{
+    let cached = localStorage.getItem('shoesDataCache');
+    let cacheTime = localStorage.getItem('shoesDataCacheTime');
+    const CACHE_HOURS = 12;
+
+    if (!force && cached && cacheTime) {
+      const diffHrs = (Date.now() - parseInt(cacheTime)) / (1000 * 60 * 60);
+      if (diffHrs < CACHE_HOURS) {
+        console.log('Using cached data...');
+        rawData = JSON.parse(cached);
+        processRawData();
+        return;
+      }
+    }
+
+    console.log('Fetching from Firebase...');
     const snap=await db.collection('shoes_data').get();
     rawData=snap.docs.map(d=>d.data());
-    rawData.forEach(r=>{ if(!skuMeta[r.sku]) skuMeta[r.sku]={category:r.category||'未分類',grade:r.grade||'未分級'}; });
-    document.getElementById('loading-overlay').style.display='none';
-    // 更新時間
-    document.getElementById('updateTime').textContent='資料更新：'+new Date().toLocaleDateString('zh-TW');
-    buildFilters();
-    refreshAll();
+    
+    try {
+      localStorage.setItem('shoesDataCache', JSON.stringify(rawData));
+      localStorage.setItem('shoesDataCacheTime', Date.now().toString());
+    } catch(err) {
+      console.warn('Cache save failed:', err);
+    }
+    processRawData();
   }catch(e){
     document.getElementById('loading-overlay').style.display='none';
-    alert('Firebase 連線失敗：'+e.message);
+    let cached = localStorage.getItem('shoesDataCache');
+    if (cached) {
+      alert('Firebase 額度已滿或連線失敗！系統將自動載入上一次的快取資料。');
+      rawData = JSON.parse(cached);
+      processRawData();
+    } else {
+      alert('Firebase 額度已滿，且無本機快取資料。請等候額度重置 (下午3點) 或升級方案。\n錯誤：'+e.message);
+    }
   }
+}
+
+function processRawData() {
+    rawData.forEach(r=>{ if(!skuMeta[r.sku]) skuMeta[r.sku]={category:r.category||'未分類',grade:r.grade||'未分級'}; });
+    document.getElementById('loading-overlay').style.display='none';
+    document.getElementById('updateTime').innerHTML = '資料更新：'+new Date().toLocaleDateString('zh-TW') + 
+      ' <button onclick="loadAllData(true)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 8px;margin-left:8px;cursor:pointer;font-size:12px;font-weight:bold;">🔄 強制更新 Firebase</button>';
+    buildFilters();
+    refreshAll();
 }
 
 // ── 同步所有年份選單 ──
