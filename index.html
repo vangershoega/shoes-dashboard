@@ -501,7 +501,7 @@ tbody tr:hover{background:var(--surface2);}
 </div>
 
 <script>
-const API_KEY = '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';
+const API_KEY = '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';
 const RESTOCK_THRESHOLD = 10; // 低於此庫存顯示補貨建議
 
 firebase.initializeApp({
@@ -1313,7 +1313,7 @@ async function generateAI(){
   const highR=Object.entries(skuS).map(([sku,s])=>{const c=skuC[sku]||0;const r=s>0?(c/s).toFixed(1):'∞';return{sku,sales:s,close:c,ratio:r};}).filter(x=>parseFloat(x.ratio)>=5||x.ratio==='∞').sort((a,b)=>parseFloat(b.ratio)-parseFloat(a.ratio)).slice(0,5);
   const lowStock=Object.entries(skuC).filter(([sku,c])=>{
     const g=skuMeta[sku]?.grade||'';
-    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || x.sku.startsWith('特價') || x.sku.startsWith('瑕疵') || x.sku.startsWith('樣品');
+    const noRs=['歷年累計特賣款','2024淘汰款','2025淘汰款'].includes(g) || sku.startsWith('特價') || sku.startsWith('瑕疵') || sku.startsWith('樣品');
     return !noRs&&c>0&&c<=RESTOCK_THRESHOLD;
   }).map(([sku,c])=>({sku,close:c})).slice(0,5);
 
