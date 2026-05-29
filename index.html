@@ -675,13 +675,6 @@ function updateTags(){
   const el=document.getElementById('selectedTags');
   if(el) el.innerHTML=state.filters.sku.map(s=>`<span class="stag">${s}<span class="stag-x" onclick="removeSku('${s}')">×</span></span>`).join('');
 }
-function switchPage(name,el){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  el.classList.add('active');
-}
-
 // ── 資料工具 ──
 function getFiltered(overStore,overMonth){
   const store=overStore||state.store, month=overMonth||state.month;
